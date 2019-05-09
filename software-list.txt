@@ -1,0 +1,20 @@
+Communication
+-------------
+* Telegram
+* Line
+
+Editor
+------
+* Sublime Text 3
+* Sublime Merge
+* Macdown
+* Microsoft Office
+* Grammarly
+
+Other
+-----
+* Chrome
+* KKBox
+* Skim
+* Google Backup and Sync
+* MacTex

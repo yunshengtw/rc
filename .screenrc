@@ -1,0 +1,5 @@
+bind -k ku focus up
+bind -k kd focus down
+bind -k kl focus left
+bind -k kr  focus right
+term "screen-256color"
