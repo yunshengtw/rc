@@ -68,6 +68,9 @@ case "$TERM" in
 xterm*|rxvt*)
     PS1="\[\e]0;${debian_chroot:+($debian_chroot)}\u@\h: \w\a\]$PS1"
     ;;
+screen*)
+    PS1='\[\033k\033\\\]'$PS1
+    ;;
 *)
     ;;
 esac
@@ -116,12 +119,4 @@ if ! shopt -oq posix; then
   fi
 fi
 
-export GIT_SSL_NO_VERIFY=1
-alias daisy='ssh u106061552@140.114.24.31'
-alias openssd='ssh yschang@140.114.28.164'
-alias openssd-jasmine='ssh ssdlab@192.168.1.101'
-alias ssdlab='ssh yunsheng@140.114.28.231'
-alias pc-ssdlab='ssh yschang@140.114.28.128'
-alias ee='ssh -Y u106061552@140.114.24.33'
-PATH=/Volumes/arm-x/bin:${PATH}
-PATH=/Users/yunsheng/Library/Python/2.7/bin:${PATH}
+. ~/.bashrc-local

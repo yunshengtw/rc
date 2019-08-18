@@ -4,7 +4,7 @@ bind -k ku focus up
 bind -k kd focus down
 bind -k kl focus left
 bind -k kr  focus right
-bindkey "^[`" select 2
+bindkey "^[`" select 0
 bindkey "^[1" select 1
 bindkey "^[2" select 2
 bindkey "^[3" select 3
@@ -20,7 +20,7 @@ bindkey "^[=" select 12
 
 term "screen-256color"
 
-shelltitle '$ |Page'
+shelltitle "$ |bash"
 
 altscreen on
 

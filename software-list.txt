@@ -18,3 +18,4 @@ Other
 * Skim
 * Google Backup and Sync
 * MacTex
+* Brew
