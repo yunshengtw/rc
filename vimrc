@@ -9,8 +9,7 @@ set laststatus=2
 
 "Spell check
 autocmd FileType tex,markdown,text set spell |
-                             set spelllang=en |
-                             set spellfile=$HOME/GDrive/personal/rcs/vimspell.en.utf-8.add
+                             set spelllang=en
 command Showspell view myspell
 
 let g:netrw_banner = 0
