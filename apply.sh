@@ -4,3 +4,4 @@ cp bashrc-local ~/.bashrc-local
 cp vimrc ~/.vimrc
 cp screenrc ~/.screenrc
 cp emacs ~/.emacs
+cp ssh-config ~/.ssh/config
