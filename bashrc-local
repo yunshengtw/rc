@@ -16,6 +16,7 @@ alias coqdev='ssh yunsheng@coqdev.csail.mit.edu'
 
 alias em='open -a "Emacs"'
 alias skim='open -a "Skim"'
+alias goose-mvcc='./etc/update-goose.py --compile --goose ../goose/ --mvcc ../go-mvcc/'
 
 function scpto-ben() {
 	scp "$1" yschang@ben.csail.mit.edu:~/"$2"
