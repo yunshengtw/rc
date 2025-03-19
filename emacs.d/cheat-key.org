@@ -1,0 +1,96 @@
+* Emacs Cheat Sheet for Key Bindings
+
+** General
+|-------------------------------------------------+--------------|
+| Description                                     | Key bindings |
+|-------------------------------------------------+--------------|
+| Eval                                            | M-:          |
+| Eval before point and print result in echo area | C-x C-e      |
+|-------------------------------------------------+--------------|
+
+** Help
+|---------------------------------------------------------------+--------------|
+| Description                                                   | Key bindings |
+|---------------------------------------------------------------+--------------|
+| Show all helpers                                              | C-h h        |
+| Query variable value                                          | C-h v        |
+| Query mode of current buffer                                  | C-h m        |
+| Query function (incl. key binding) by key                     | C-h k        |
+| Query function (incl. key binding) by function name           | C-h f        |
+| Search documentation of functions, variables, and other items | C-h d        |
+|---------------------------------------------------------------+--------------|
+
+** Search, replace, indent
+|--------------------------+--------------|
+| Description              | Key bindings |
+|--------------------------+--------------|
+| Incremental search       | s-f          |
+| Forward search           | s-g          |
+| Backward search          | s-d          |
+| Query replace            | M-%          |
+| Indent current paragraph | M-q          |
+|--------------------------+--------------|
+
+** Programming
+
+|-------------------------------------+--------------|
+| Description                         | Key bindings |
+|-------------------------------------+--------------|
+| Find definition                     | M-.          |
+| Compile using the previous command  | S-b          |
+| Compile using the specified command | S-B          |
+| Go to the next error                | S-e          |
+|-------------------------------------+--------------|
+
+** File
+|------------------------------------+--------------|
+| Description                        | Key bindings |
+|------------------------------------+--------------|
+| Open file                          | C-x C-f      |
+| Open directory of the current file | C-x C-j      |
+|------------------------------------+--------------|
+
+** Tab control
+|------------------------+--------------|
+| Description            | Key bindings |
+|------------------------+--------------|
+| New tab                | s-t          |
+| Close tab              | s-w          |
+| Next tab               | C-tab        |
+| Select tab with number | s-<0-9>      |
+|------------------------+--------------|
+
+** Window and frame control
+|---------------------------------+--------------|
+| Description                     | Key bindings |
+|---------------------------------+--------------|
+| New horizontal window           | s-<bar>      |
+| New vertical window             | s-S          |
+| Close current window            | s-X          |
+| Close all except current window | s-A          |
+| Toggle fullscreen               | s-}          |
+|---------------------------------+--------------|
+
+** Buffer control
+|------------------+--------------|
+| Description      | Key bindings |
+|------------------+--------------|
+| Close buffer     | C-x k        |
+| List all buffers | C-x C-b      |
+| Switch to buffer | C-x b        |
+| Rename buffer    | C-x x r      |
+|------------------+--------------|
+
+** Bookmark
+|----------------------------------------+--------------|
+| Description                            | Key bindings |
+|----------------------------------------+--------------|
+| Set a bookmark at the current location | C-x r m      |
+|----------------------------------------+--------------|
+
+** Proof general
+|-----------------------+--------------|
+| Description           | Key bindings |
+|-----------------------+--------------|
+| Refresh proof windows | C-c C-l      |
+|-----------------------+--------------|

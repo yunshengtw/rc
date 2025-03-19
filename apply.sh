@@ -2,7 +2,9 @@
 
 # emacs
 cp emacs ~/.emacs
-cp -r emacs.d ~/emacs.d
+for file in emacs.d/*; do
+	cp $file ~/.emacs.d/$(basename $file)
+done
 
 # tmux
 cp tmux.conf .tmux.conf

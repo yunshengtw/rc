@@ -1,10 +1,11 @@
 #!/bin/bash
 
 # emacs
+EMACS_FILES="early-init.el iris.el cheat-key.org"
+
 cp ~/.emacs emacs
-for file in emacs.d/*.{el,org}; do
-	echo "$(basename "$file")"
-	cp ~/.emacs.d/$(basename $file) emacs.d/
+for file in $EMACS_FILES; do
+	cp ~/.emacs.d/$file emacs.d/
 done
 
 # tmux
