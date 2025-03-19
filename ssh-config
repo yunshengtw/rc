@@ -1,16 +1,10 @@
-Host login.csail.mit.edu
-  GSSAPIAuthentication yes
-  VerifyHostKeyDNS yes
-  # optional, if X forwarding is desired
-  #ForwardX11 yes
-  # optional, if your local username does not match YOUR_CSAIL_USERNAME
+Host athena.dialup.mit.edu
+  HostName athena.dialup.mit.edu
   User yschang
 
-Host *.csail.mit.edu !login.csail.mit.edu 128.52.* 128.30.* 128.31.*
-  ProxyJump login.csail.mit.edu
-  GSSAPIAuthentication yes
-  GSSAPIDelegateCredentials yes
-  # optional, if X forwarding is desired
-  #ForwardX11 yes
-  # optional, if your local username does not match YOUR_CSAIL_USERNAME
-  User yschang
+Host login.csail.mit.edu
+User yschang
+
+Host *.csail.mit.edu !g.csail.mit.edu !login.csail.mit.edu
+User yschang
+ProxyJump login.csail.mit.edu
