@@ -1,0 +1,102 @@
+[window]
+
+# Remove the title bar and the buttons (macOS-specific).
+decorations = "Buttonless"
+
+padding.x = 10
+padding.y = 10
+
+[font]
+
+normal.family = "Fira Mono"
+normal.style = "Regular"
+bold.family = "Fira Mono"
+italic.family = "Fira Mono"
+bold_italic.family = "Fira Mono"
+
+size = 14.0
+
+[keyboard]
+
+bindings = [
+	{ key = '"', mods = "Command|Shift", action = "ToggleMaximized" },
+	{ key = "'", mods = "Command", action = "ToggleFullscreen" },
+	# Special bindings for tmux (using unicode Private Usage Area: U+E000–U+F8FF).
+	## Window controls.
+	{ key = "T", mods = "Command", chars = "\uE000" },
+	{ key = "Tab", mods = "Control", chars = "\uE001" },
+	{ key = "1", mods = "Command", chars = "\uE011" },
+	{ key = "2", mods = "Command", chars = "\uE012" },
+	{ key = "3", mods = "Command", chars = "\uE013" },
+	{ key = "4", mods = "Command", chars = "\uE014" },
+	{ key = "5", mods = "Command", chars = "\uE015" },
+	{ key = "6", mods = "Command", chars = "\uE016" },
+	{ key = "7", mods = "Command", chars = "\uE017" },
+	{ key = "8", mods = "Command", chars = "\uE018" },
+	{ key = "9", mods = "Command", chars = "\uE019" },
+	## Pane controls.
+	{ key = "|", mods = "Command|Shift", chars = "\uE100" },
+	{ key = "S", mods = "Command|Shift", chars = "\uE101" },
+	{ key = "Tab", mods = "Option", chars = "\uE102" },
+	{ key = "A", mods = "Command|Shift", chars = "\uE110" },
+	{ key = "E", mods = "Command|Shift", chars = "\uE111" },
+	## Unbind keys.
+	{ key = "k", mods = "Command", action = "None" },
+	{ key = "s", mods = "Command", action = "None" },
+]
+
+[terminal.shell]
+
+program = "/opt/homebrew/bin/tmux"
+args = ["new-session", "-A", "-s", "main"]
+
+[colors.bright]
+black = "#4c566a"
+blue = "#81a1c1"
+cyan = "#8fbcbb"
+green = "#a3be8c"
+magenta = "#b48ead"
+red = "#bf616a"
+white = "#eceff4"
+yellow = "#ebcb8b"
+
+[colors.cursor]
+cursor = "#d8dee9"
+text = "#2e3440"
+
+[colors.dim]
+black = "#373e4d"
+blue = "#68809a"
+cyan = "#6d96a5"
+green = "#809575"
+magenta = "#8c738c"
+red = "#94545d"
+white = "#aeb3bb"
+yellow = "#b29e75"
+
+[colors.normal]
+black = "#3b4252"
+blue = "#81a1c1"
+cyan = "#88c0d0"
+green = "#a3be8c"
+magenta = "#b48ead"
+red = "#bf616a"
+white = "#e5e9f0"
+yellow = "#ebcb8b"
+
+[colors.primary]
+background = "#2e3440"
+dim_foreground = "#a5abb6"
+foreground = "#d8dee9"
+
+[colors.search.matches]
+background = "#88c0d0"
+foreground = "CellBackground"
+
+[colors.selection]
+background = "#4c566a"
+text = "CellForeground"
+
+[colors.vi_mode_cursor]
+cursor = "#d8dee9"
+text = "#2e3440"

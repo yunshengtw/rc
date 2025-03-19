@@ -1,0 +1,14 @@
+CSAIL='yschang@login.csail.mit.edu'
+alias csail='ssh $CSAIL'
+
+BEN='yschang@ben.csail.mit.edu'
+alias ben='ssh $BEN'
+
+COQDEV='yunsheng@coqdev.csail.mit.edu'
+alias coqdev='ssh $COQDEV'
+
+NIL='yschang@nil.lcs.mit.edu'
+alias nil='ssh -A $NIL'
+
+ATHENA='yschang@athena.dialup.mit.edu'
+alias athena='ssh $ATHENA'
