@@ -338,7 +338,9 @@ setopt no_auto_menu
 test -r /Users/yunsheng/.opam/opam-init/init.sh && . /Users/yunsheng/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true
 
 # Add homebrew path PATH.
-/opt/homebrew/bin/brew shellenv && eval "$(/opt/homebrew/bin/brew shellenv)"
+if [ -f /opt/homebrew/bin/brew ]; then
+    eval "$(/opt/homebrew/bin/brew shellenv)"
+fi
 
 # git prompt hint
 # if [ -f ~/.git-prompt.sh ]; then
