@@ -7,6 +7,8 @@ for file in emacs.d/*; do
 done
 
 # tmux
+mkdir -p ~/.tmux/themes/
+git clone git@github.com:nordtheme/tmux.git nord-tmux 2>/dev/null
 cp tmux/tmux.conf ~/.tmux.conf
 cp tmux/tmux.bind ~/.tmux.bind
 cp tmux/tmux.unbind ~/.tmux.unbind
