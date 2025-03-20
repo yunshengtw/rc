@@ -9,7 +9,9 @@ for file in $EMACS_FILES; do
 done
 
 # tmux
-cp ~/.tmux.conf tmux.conf
+cp ~/.tmux.conf tmux/tmux.conf
+cp ~/.tmux.bind tmux/tmux.bind
+cp ~/.tmux.unbind tmux/tmux.bind
 
 # alacritty
 cp ~/.config/alacritty/alacritty.toml alacritty.toml

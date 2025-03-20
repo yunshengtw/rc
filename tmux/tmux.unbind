@@ -1,0 +1,10 @@
+#!/bin/bash
+
+# Unbind everything and rebind S-N to binding. Note that the line below unbinds
+# all global key patterns, but keep the non-global ones. If we ever want to
+# unbind all non-global ones as well, have the following:
+#
+# unbind-key -a
+#
+unbind-key -a -n
+bind-key -n \uF000 source-file ~/.tmux.bind

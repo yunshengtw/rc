@@ -7,7 +7,9 @@ for file in emacs.d/*; do
 done
 
 # tmux
-cp tmux.conf ~/.tmux.conf
+cp tmux/tmux.conf ~/.tmux.conf
+cp tmux/tmux.bind ~/.tmux.bind
+cp tmux/tmux.unbind ~/.tmux.unbind
 
 # alacritty
 mkdir -p ~/.config/alacritty

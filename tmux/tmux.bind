@@ -1,0 +1,10 @@
+# Unbind everything and rebind S-N to binding. Note that the line below unbinds
+# all global key patterns, but keep the non-global ones. To unbind all
+# non-global ones: `unbind-key -a`
+
+unbind-key -a -n
+bind-key -n \uF000 source-file ~/.tmux.bind
+
+## Reset the focus flag.
+
+set-option -g @focus 0

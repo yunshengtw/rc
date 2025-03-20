@@ -40,9 +40,10 @@ bindings = [
 	{ key = "Tab", mods = "Option", chars = "\uE102" },
 	{ key = "A", mods = "Command|Shift", chars = "\uE110" },
 	{ key = "E", mods = "Command|Shift", chars = "\uE111" },
-	## Unbind keys.
-	{ key = "k", mods = "Command", action = "None" },
-	{ key = "s", mods = "Command", action = "None" },
+	## Copy mode.
+	{ key = "M", mods = "Command|Shift", chars = "\uE200" },
+	##
+	{ key = "F", mods = "Command|Shift", chars = "\uF000" },
 ]
 
 [terminal.shell]
