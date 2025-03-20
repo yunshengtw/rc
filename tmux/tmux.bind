@@ -8,7 +8,7 @@ set-option -g prefix C-a
 
 ## Window controls.
 
-bind-key -n \uE000 new-window
+bind-key -n \uE000 new-window -c "#{pane_current_path}"
 bind-key -n \uE001 next-window
 bind-key -n \uE011 select-window -t 1
 bind-key -n \uE012 select-window -t 2

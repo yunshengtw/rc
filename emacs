@@ -25,7 +25,7 @@
 (setq dashboard-center-content t)
 ;; Show 10 most recently open files
 (setq dashboard-items '((recents  . 5)
-			(bookmarks . 5)))
+						(bookmarks . 5)))
 ;; Show navigators below the banner
 (setq dashboard-set-navigator t)
 ;; Create a navigator to open terminal
@@ -49,10 +49,14 @@
 				,(face-background 'default)
 				:foreground
 				,(face-foreground 'default)
-				:box (:line-width 4 :color ,(face-background 'default))))))
- `(tab-bar-tab-inactive ((t (:foreground "#4c566a")))))
+				:box (:line-width 8 :color ,(face-background 'default))))))
+ '(tab-bar-tab ((t (:underline nil))))
+ '(tab-bar-tab-inactive ((t (:foreground "#4c566a")))))
 
- ;; '(tab-bar ((t :box (:line-width 4)))))
+;; Adds an empty header line to create some margin at the top
+(setq-default header-line-format "")
+(custom-set-faces
+ `(header-line ((t (:background ,(face-background 'default) :height 0.5 :box nil)))))
 
 ;; (require 'modus-themes)
 ;; (defun ysc/modus-themes-custom-faces ()
