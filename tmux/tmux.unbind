@@ -2,6 +2,7 @@
 # all global key patterns, but keep the non-global ones. To unbind all
 # non-global ones: `unbind-key -a`
 
+set-option -gu prefix
 unbind-key -a -n
 bind-key -n \uF000 source-file ~/.tmux.bind
 

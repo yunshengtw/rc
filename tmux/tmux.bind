@@ -1,5 +1,9 @@
+# Set PREFIX to C-a.
+
+set-option -g prefix C-a
+
 # Global (i.e., no-prefix) key bindings (specified with -n). This requires the
-# terminal program (e.g., alacritty to send the special unicode Private Usage
+# terminal program (e.g., alacritty) to send the special unicode Private Usage
 # Area (PUA) character.
 
 ## Window controls.

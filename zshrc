@@ -347,6 +347,10 @@ fi
 # 	. ~/.git-prompt.sh
 # fi
 
+if [ -f ~/.zshrc-cmd ]; then
+	. ~/.zshrc-cmd
+fi
+
 if [ -f ~/.zshrc-ssh ]; then
 	. ~/.zshrc-ssh
 fi
