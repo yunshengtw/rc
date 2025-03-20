@@ -46,6 +46,10 @@ bindings = [
 	{ key = "F", mods = "Command|Shift", chars = "\uF000" },
 ]
 
+[env]
+
+PATH = "/usr/bin:/opt/homebrew/bin"
+
 [terminal.shell]
 
 program = "/opt/homebrew/bin/tmux"
