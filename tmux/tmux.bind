@@ -1,10 +1,49 @@
-# Unbind everything and rebind S-N to binding. Note that the line below unbinds
-# all global key patterns, but keep the non-global ones. To unbind all
-# non-global ones: `unbind-key -a`
+# Global (i.e., no-prefix) key bindings (specified with -n). This requires the
+# terminal program (e.g., alacritty to send the special unicode Private Usage
+# Area (PUA) character.
 
-unbind-key -a -n
-bind-key -n \uF000 source-file ~/.tmux.bind
+## Window controls.
 
-## Reset the focus flag.
+bind-key -n \uE000 new-window
+bind-key -n \uE001 next-window
+bind-key -n \uE011 select-window -t 1
+bind-key -n \uE012 select-window -t 2
+bind-key -n \uE013 select-window -t 3
+bind-key -n \uE014 select-window -t 4
+bind-key -n \uE015 select-window -t 5
+bind-key -n \uE016 select-window -t 6
+bind-key -n \uE017 select-window -t 7
+bind-key -n \uE018 select-window -t 8
+bind-key -n \uE019 select-window -t 9
 
-set-option -g @focus 0
+## Pane controls.
+
+bind-key -n \uE100 split-window -h
+bind-key -n \uE101 split-window -v
+
+### Switch to next pane.
+bind-key -n \uE102 select-pane -t :.+
+
+### Maximize the current pane.
+bind-key -n \uE110 resize-pane -Z
+
+### Evenly layout the panes along the X-axis.
+bind-key -n \uE111 select-layout even-horizontal
+
+## Copy mode.
+
+bind-key -n \uE200 copy-mode
+
+## Focus.
+##
+## Goal of the focus feature is to enable ease of use of nested tmux over SSH.
+## The idea is to "unfocus" from the local tmux, which removes all key bindings
+## (except PREFIX) to allow the key patterns to be sent over SSH to the remote
+## tmux. When we want to control the local tmux, "focus" rebuild the key
+## bindings.
+
+bind-key -n \uF000 source-file ~/.tmux.unbind
+
+## Set the focus flag.
+
+set-option -g @focus 1

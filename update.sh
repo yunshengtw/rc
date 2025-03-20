@@ -11,7 +11,7 @@ done
 # tmux
 cp ~/.tmux.conf tmux/tmux.conf
 cp ~/.tmux.bind tmux/tmux.bind
-cp ~/.tmux.unbind tmux/tmux.bind
+cp ~/.tmux.unbind tmux/tmux.unbind
 
 # alacritty
 cp ~/.config/alacritty/alacritty.toml alacritty.toml
