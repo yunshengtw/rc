@@ -8,6 +8,9 @@ for file in $EMACS_FILES; do
 	cp ~/.emacs.d/$file emacs.d/
 done
 
+# vim
+cp ~/.vimrc vimrc
+
 # tmux
 cp ~/.tmux.conf tmux/tmux.conf
 cp ~/.tmux.bind tmux/tmux.bind

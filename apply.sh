@@ -6,6 +6,9 @@ for file in emacs.d/*; do
 	cp $file ~/.emacs.d/$(basename $file)
 done
 
+# vim
+cp vimrc ~/.vimrc
+
 # tmux
 mkdir -p ~/.tmux/themes/
 git clone https://github.com/nordtheme/tmux.git ~/.tmux/themes/nord-tmux 2>/dev/null

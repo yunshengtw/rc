@@ -56,7 +56,7 @@
 ;; Adds an empty header line to create some margin at the top
 (setq-default header-line-format "")
 (custom-set-faces
- `(header-line ((t (:background ,(face-background 'default) :height 0.5 :box nil)))))
+ `(header-line ((t (:background ,(face-background 'default) :box nil)))))
 
 ;; (require 'modus-themes)
 ;; (defun ysc/modus-themes-custom-faces ()
@@ -434,3 +434,15 @@
         ;; This would override `fill-column' if it's an integer.
         (emacs-lisp-docstring-fill-column t))
     (fill-paragraph nil region)))
+
+
+(defun resize-to-left-half-screen ()
+  (interactive)
+  "Resize and move Emacs to take exactly the left half of the screen."
+  (let* ((screen-width (display-pixel-width))
+         (screen-height (display-pixel-height))
+         (frame-width (/ screen-width 2))  ;; Half of screen width
+         (frame-height screen-height))
+    (set-frame-position (selected-frame) 0 0)
+    (set-frame-size (selected-frame) frame-width frame-height t)))
+(global-set-key (kbd "s-{") 'resize-to-left-half-screen)

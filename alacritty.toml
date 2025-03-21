@@ -6,6 +6,19 @@ decorations = "Buttonless"
 padding.x = 10
 padding.y = 10
 
+# Tuned to work side-by-side with emacs on my monitor. Can't find a general way
+# to do this.
+
+[window.dimensions]
+
+columns = 114
+lines = 100
+
+[window.position]
+
+x = 1980
+y = 0
+
 [font]
 
 normal.family = "Fira Mono"
