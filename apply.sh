@@ -26,3 +26,6 @@ cp zshrc-ssh ~/.zshrc-ssh
 
 # ssh
 cp ssh-config ~/.ssh/config
+
+# skhd
+cp skhdrc ~/.skhdrc

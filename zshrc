@@ -334,6 +334,10 @@ prompt_igloo_setup "$@"
 setopt auto_list
 setopt no_auto_menu
 
+# Set spaces per tab to 4.
+# This breaks ls output. Figure out the right way to do this.
+# tabs -4
+
 # Add opam path to PATH.
 test -r /Users/yunsheng/.opam/opam-init/init.sh && . /Users/yunsheng/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true
 

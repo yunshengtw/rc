@@ -1,0 +1,20 @@
+# M-{ -> occupy left-half
+shift + alt - 0x21 : yabai -m window --grid 1:2:0:0:1:1
+
+# M-} -> occupy right-half
+shift + alt - 0x1E : yabai -m window --grid 1:2:1:0:1:1
+
+# M-" -> maximize
+shift + alt - 0x27 : yabai -m window --grid 1:1:0:0:1:1
+
+# M-` -> open terminal
+alt - 0x32 : open -a "Alacritty"
+
+# M-1 -> open emacs
+alt - 1 : open -a "Emacs"
+
+# M-2 -> open emacs
+alt - 2 : open -a "Google Chrome"
+
+# M-3 -> open chatgpt
+alt - 3 : open -a "ChatGPT"

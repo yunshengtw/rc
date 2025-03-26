@@ -175,8 +175,8 @@
 (tool-bar-mode -1)
 
 ;;; Frame management
-(global-set-key (kbd "s-\"") 'toggle-frame-maximized)
-(global-set-key (kbd "s-'") 'toggle-frame-fullscreen)
+; (global-set-key (kbd "s-\"") 'toggle-frame-maximized)
+; (global-set-key (kbd "s-'") 'toggle-frame-fullscreen)
 
 ;;; Window management
 (global-set-key (kbd "s-X") 'delete-window)
@@ -250,18 +250,18 @@
 
 ;;; Company Coq
 (add-hook 'coq-mode-hook
-	  (lambda ()
-		;; Incompatible with mixcode
-		(setq company-coq-disabled-features '(smart-subscripts))
-	    (company-coq-mode)
-	    ;; Avoid the image lighter that increases the mode line height
-	    (setcar (cdr (assq 'company-coq-mode minor-mode-alist)) " company-coq")))
+		  (lambda ()
+			;; Incompatible with mixcode
+			(setq company-coq-disabled-features '(smart-subscripts))
+			(company-coq-mode)
+			;; Avoid the image lighter that increases the mode line height
+			(setcar (cdr (assq 'company-coq-mode minor-mode-alist)) " company-coq")))
 (add-hook 'coq-mode-hook
-	  (lambda ()
-	    ;; Set the default compile command to "./vos.sh" for Coq mode
-	    (setq-local compile-command "./vos.sh")
-	    ;; Indent `mixcode' correctly
-	    (setq tab-width 2)))
+		  (lambda ()
+			;; Set the default compile command to "./vos.sh" for Coq mode
+			(setq-local compile-command "./vos.sh")
+			;; Indent `mixcode' correctly
+			(setq tab-width 2)))
 ;; Fold the bullets when opening a file
 (setq company-coq-initial-fold-state 'bullets)
 
@@ -278,16 +278,16 @@
 ;; Update the PATH env var so that we can find `golps'
 (add-to-list 'exec-path "~/go/bin")
 (add-hook 'go-mode-hook
-	  (lambda ()
-	    ;; Set the default compile command to "go build" for Go mode
-	    (setq-local compile-command "go build")
-	    (eglot-ensure)
-	    (company-mode)))
+		  (lambda ()
+			;; Set the default compile command to "go build" for Go mode
+			(setq-local compile-command "go build")
+			(eglot-ensure)
+			(company-mode)))
 
 ;; Iris (clean-up/comments required)
 (add-hook 'coq-mode-hook
-	  (lambda ()
-	    (load "~/.emacs.d/iris.el")))
+		  (lambda ()
+			(load "~/.emacs.d/iris.el")))
 
 ;;; Git
 (require 'magit)
@@ -436,13 +436,16 @@
     (fill-paragraph nil region)))
 
 
-(defun resize-to-left-half-screen ()
-  (interactive)
-  "Resize and move Emacs to take exactly the left half of the screen."
-  (let* ((screen-width (display-pixel-width))
-         (screen-height (display-pixel-height))
-         (frame-width (/ screen-width 2))  ;; Half of screen width
-         (frame-height screen-height))
-    (set-frame-position (selected-frame) 0 0)
-    (set-frame-size (selected-frame) frame-width frame-height t)))
-(global-set-key (kbd "s-{") 'resize-to-left-half-screen)
+;; (defun resize-to-left-half-screen ()
+;;   (interactive)
+;;   "Resize and move Emacs to take exactly the left half of the screen."
+;;   (let* ((screen-width (display-pixel-width))
+;;          (screen-height (display-pixel-height))
+;;          (frame-width (/ screen-width 2))  ;; Half of screen width
+;;          (frame-height screen-height))
+;;     (set-frame-position (selected-frame) 0 0)
+;;     (set-frame-size (selected-frame) frame-width frame-height t)))
+;; (global-set-key (kbd "s-{") 'resize-to-left-half-screen)
+
+;; https://emacs.stackexchange.com/a/77387
+(setq frame-resize-pixelwise t)
