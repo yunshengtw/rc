@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # emacs
-EMACS_FILES="early-init.el iris.el rustdoc-dark.el cheat-key.org"
+EMACS_FILES="early-init.el iris.el rustdoc-theme.el cheat-key.org"
 
 cp ~/.emacs emacs
 for file in $EMACS_FILES; do

@@ -17,23 +17,33 @@
 (deftheme rustdoc
   "A theme based on the Rustdoc Dark theme.")
 
-(let ((class '((class color) (min-colors 89)))
-      ;; Palette based on Base16 Tomorrow Night / Rustdoc Dark
-      (bg      "#1d1f21")
-      (fg      "#c5c8c6")
-      (comment "#969896") ;; Standard Tomorrow Night comment, slightly lighter than #707880 for better readability
-      (red     "#cc6666")
-      (orange  "#de935f")
-      (yellow  "#f0c674")
-      (green   "#b5bd68")
-      (cyan    "#8abeb7")
-      (blue    "#81a2be")
-      (purple  "#b294bb")
-      (hl-line "#282a2e")
-      (selection "#373b41")
-      (dark    "#1d1f21")
-      (light   "#e0e0e0"))
+(defconst rustdoc-colors-alist
+  '(("class"   . '((class color) (min-colors 89)))
+    ("bg"      . "#1d1f21")
+    ("fg"      . "#c5c8c6")
+    ("comment" . "#969896") ;; Standard Tomorrow Night comment, slightly lighter than #707880 for better readability
+    ("red"     . "#cc6666")
+    ("orange"  . "#de935f")
+    ("yellow"  . "#f0c674")
+    ("green"   . "#b5bd68")
+    ("cyan"    . "#8abeb7")
+    ("blue"    . "#81a2be")
+    ("purple"  . "#b294bb")
+    ("hl-line" . "#282a2e")
+    ("selection" . "#373b41")
+    ("dark"    . "#1d1f21")
+    ("light"   . "#e0e0e0"))
+  "Palette for the rustdoc theme.")
 
+(defmacro rustdoc-with-colors (&rest body)
+  "Execute BODY with colors from `rustdoc-colors-alist' bound."
+  (declare (indent 0))
+  (let ((colors (mapcar (lambda (x) (list (intern (car x)) (cdr x)))
+                        rustdoc-colors-alist)))
+    `(let ,colors
+       ,@body)))
+
+(rustdoc-with-colors
   (custom-theme-set-faces
    'rustdoc
    `(default ((,class (:background ,bg :foreground ,fg))))

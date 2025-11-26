@@ -39,30 +39,21 @@
 
 ;;; Themes
 
-(require 'ef-themes)
-(defun ysc/ef-themes-custom-faces ()
-  (ef-themes-with-colors
+(add-to-list 'custom-theme-load-path "~/.emacs.d/")
+(load-theme 'rustdoc t)
+
+(defun ysc/rustdoc-custom-faces ()
+  (rustdoc-with-colors
     (custom-set-faces
      ;; Set font size and family
      '(default ((t :family "Fira Mono" :height 150)))
      ;; Add "padding" to the tab bar
-	 `(tab-bar ((t (:background
-					,(face-background 'default)
-					:box (:line-width (2 . 8) :color ,(face-background 'default))))))
-	 `(tab-bar-tab ((t
-					 :background ,(face-background 'default)
-					 :box nil
-					 :underline (:color ,(face-foreground 'default) :style double-line :position 5))))
-	 `(tab-bar-tab-inactive ((t (:box nil :background ,(face-background 'default)))))
-     ;; Add "padding" to the mode lines
-     ;; `(mode-line ((,c :box (:line-width 6 :color ,bg-mode-line-active))))
-     ;; `(mode-line-inactive ((,c :box (:line-width 6 :color ,bg-mode-line-inactive))))
-     )
+     (list 'tab-bar (list (list t (list :background bg :box (list :line-width '(2 . 8) :color bg)))))
+     (list 'tab-bar-tab (list (list t (list :background bg :box nil :underline (list :color fg :style 'double-line :position 5)))))
+     (list 'tab-bar-tab-inactive (list (list t (list :box nil :background bg)))))
     (set-face-attribute 'font-lock-comment-face nil :slant 'normal)
     (set-face-attribute 'font-lock-comment-delimiter-face nil :slant 'normal)))
-(add-hook 'ef-themes-after-load-theme-hook #'ysc/ef-themes-custom-faces)
-(ef-themes-load-theme 'ef-deuteranopia-dark)
-(global-set-key (kbd "<f6>") 'ef-themes-toggle)
+(ysc/rustdoc-custom-faces)
 
 ;;; Misc
 ;; Maximize frame on start-up
