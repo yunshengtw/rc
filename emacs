@@ -16,7 +16,7 @@
 (add-to-list 'exec-path "/opt/homebrew/sbin")
 
 ;;; Add opam binary to exec-path to find coqtop.
-(add-to-list 'exec-path "/Users/yunsheng/.opam/default/bin")
+;; (add-to-list 'exec-path "/Users/yunsheng/.opam/default/bin")
 
 ;;; Dashboard
 (require 'dashboard)
@@ -38,75 +38,31 @@
 (require 'vterm)
 
 ;;; Themes
-;; (add-to-list 'custom-theme-load-path (expand-file-name "~/.emacs.d/themes/"))
-(load-theme 'nord t)
-(custom-set-faces
- ;; Set font size and family
- '(default ((t :family "Fira Mono" :height 150)))
- ;; Add "padding" to the tab bar
- ;; `(tab-bar ((t (:background ,(face-background 'default) :foreground ,(face-foreground 'default))))))
- `(tab-bar ((t (:background
-				,(face-background 'default)
-				:foreground
-				,(face-foreground 'default)
-				:box (:line-width 8 :color ,(face-background 'default))))))
- '(tab-bar-tab ((t (:underline nil))))
- '(tab-bar-tab-inactive ((t (:foreground "#4c566a")))))
 
-;; Adds an empty header line to create some margin at the top
-(setq-default header-line-format "")
-(custom-set-faces
- `(header-line ((t (:background ,(face-background 'default) :box nil)))))
-
-;; (require 'modus-themes)
-;; (defun ysc/modus-themes-custom-faces ()
-;;   (modus-themes-with-colors
-;;     (custom-set-faces
-;;      ;; Set font size and family
-;;      '(default ((t :family "Fira Mono" :height 150)))
-;;      ;; Add "padding" to the tab bar
-;;      `(tab-bar ((,c :box (:line-width 4 :color ,bg-tab-bar))))
-;;      ;; Add "padding" to the mode lines
-;;      ;; `(mode-line ((,c :box (:line-width 6 :color ,bg-mode-line-active))))
-;;      ;; `(mode-line-inactive ((,c :box (:line-width 6 :color ,bg-mode-line-inactive))))
-;;      )))
-;; (add-hook 'modus-themes-after-load-theme-hook #'ysc/modus-themes-custom-faces)
-;; (modus-themes-load-theme 'modus-vivendi)
-;; (global-set-key (kbd "<f6>") 'modus-themes-toggle)
-
-;;; Previous theme setting (to be deleted)
-;; (load-theme 'dark-laptop t)
-;; (set-face-attribute 'default nil :height 150 :family "Fira Mono")
-;; Set face for mode line
-;; (copied from https://github.com/gonsie/dotfiles/blob/master/emacs/theme.el)
-;; (set-face-attribute 'mode-line nil
-;;                     :background "#565063"
-;;                     :foreground "white"
-;;                     :box '(:line-width 8 :color "#565063")
-;;                     :overline nil
-;;                     :underline nil)
-;; Set face for mode line for inactive (non-focused) window
-;; (set-face-attribute 'mode-line-inactive nil
-;;                     :background "#353644"
-;;                     :foreground "white"
-;;                     :box '(:line-width 8 :color "#353644")
-;;                     :overline nil
-;;                     :underline nil)
-;; Set face for the tab bar, active/inactive tabs (somehow the `inherit' field
-;; doesn't work)
-;; (set-face-attribute 'tab-bar nil
-;; 					:family "Fira Mono"
-;;                     :background "#353644"
-;;                     :foreground "white"
-;;                     :box '(:line-width 6 :color "#353644")
-;;                     :overline nil
-;;                     :underline nil)
-;; (set-face-attribute 'tab-bar-tab nil
-;; 					:background "#565063"
-;; 					:foreground "white")
-;; (set-face-attribute 'tab-bar-tab-inactive nil
-;; 					:background "#353644"
-;; 					:foreground "white")
+(require 'ef-themes)
+(defun ysc/ef-themes-custom-faces ()
+  (ef-themes-with-colors
+    (custom-set-faces
+     ;; Set font size and family
+     '(default ((t :family "Fira Mono" :height 150)))
+     ;; Add "padding" to the tab bar
+	 `(tab-bar ((t (:background
+					,(face-background 'default)
+					:box (:line-width (2 . 8) :color ,(face-background 'default))))))
+	 `(tab-bar-tab ((t
+					 :background ,(face-background 'default)
+					 :box nil
+					 :underline (:color ,(face-foreground 'default) :style double-line :position 5))))
+	 `(tab-bar-tab-inactive ((t (:box nil :background ,(face-background 'default)))))
+     ;; Add "padding" to the mode lines
+     ;; `(mode-line ((,c :box (:line-width 6 :color ,bg-mode-line-active))))
+     ;; `(mode-line-inactive ((,c :box (:line-width 6 :color ,bg-mode-line-inactive))))
+     )
+    (set-face-attribute 'font-lock-comment-face nil :slant 'normal)
+    (set-face-attribute 'font-lock-comment-delimiter-face nil :slant 'normal)))
+(add-hook 'ef-themes-after-load-theme-hook #'ysc/ef-themes-custom-faces)
+(ef-themes-load-theme 'ef-deuteranopia-dark)
+(global-set-key (kbd "<f6>") 'ef-themes-toggle)
 
 ;;; Misc
 ;; Maximize frame on start-up
@@ -130,6 +86,12 @@
       '(("\\`/.*/\\([^/]+\\)\\'" "/var/tmp/\\1" t)))
 ;; Switch to the most recent previously selected buffer
 (global-set-key (kbd "C-`") 'mode-line-other-buffer)
+;; Find file under a project
+(global-set-key (kbd "C-x C-p") 'project-find-file)
+;; Open find-definition in another window
+(global-set-key (kbd "M->") 'xref-find-definitions-other-window)
+;; Find reference
+(global-set-key (kbd "M-/") 'xref-find-references)
 
 ;;; Tab bar
 ;; Refresh on creating a new tab for dashboard
@@ -140,7 +102,7 @@
 ;; (copied from http://www.gonsie.com/blorg/tab-bar.html)
 (when (< 26 emacs-major-version)
   ;; hide bar if <= 1 tabs open
-  (setq tab-bar-show 1)
+  ;; (setq tab-bar-show t)
   ;; hide tab close / X button
   (setq tab-bar-close-button-show nil)
   ;; buffer to show in new tabs
@@ -154,6 +116,7 @@
 	(lambda (tab)
 	  (delete-other-windows)
 	  (dashboard-open))))
+(tab-bar-mode)
 
 ;; Set up key bindings for selecting tab with tab numbers
 ;; (copied from https://github.com/gonsie/dotfiles/blob/master/emacs/my-keybindings.el)
@@ -178,6 +141,9 @@
 ; (global-set-key (kbd "s-\"") 'toggle-frame-maximized)
 ; (global-set-key (kbd "s-'") 'toggle-frame-fullscreen)
 
+;;; Bell
+(setq ring-bell-function 'ignore)
+
 ;;; Window management
 (global-set-key (kbd "s-X") 'delete-window)
 (global-set-key (kbd "s-|") 'split-window-right)
@@ -192,14 +158,24 @@
 (global-set-key (kbd "s-]") 'next-error)
 (global-set-key (kbd "s-[") 'previous-error)
 (global-set-key (kbd "C-c C-k") 'kill-compilation)
+(setq compilation-always-kill t)
 
 ;;; Registers
 (global-set-key (kbd "s-p") 'point-to-register)
 (global-set-key (kbd "s-j") 'jump-to-register)
 
+;;; Dired
+(add-hook 'dired-mode-hook 'dired-omit-mode)
+(global-set-key (kbd "s-D") 'dired-sidebar-toggle-sidebar)
+
 ;;; Misc
 (global-set-key (kbd "M-`") 'shell-command)
 (global-set-key (kbd "s-/") 'set-mark-command)
+(global-set-key (kbd "S-<return>") 'electric-indent-just-newline)
+
+;;; Backup files
+;; Disable creation of backup files (i.e., files end with "~")
+(setq make-backup-files nil)
 
 ;;; Flymake
 (add-hook 'flymake-mode-hook
@@ -209,16 +185,21 @@
 ;;; Editor
 ;; Tab width = 4
 (setq-default tab-width 4)
-;; Maximum line width = 80
-(setq-default fill-column 80)
+;; Maximum line width = 100
+(setq-default fill-column 100)
 ;; Enable automatically breaking lines on typing `SPC' or `RET'
 (auto-fill-mode)
 ;; Scroll one line at a time
 (setq scroll-step 1)
 (setq scroll-conservatively 10000)
+(global-set-key (kbd "s-ㄋ") 'save-buffer)
 
 ;;; Language server protocol (eglot)
 (require 'eglot)
+;; Disable inlay parameter names
+(add-hook 'eglot-managed-mode-hook
+		  (lambda ()
+			(eglot-inlay-hints-mode 0)))
 
 ;;; Elisp
 (add-hook 'emacs-lisp-mode-hook
@@ -226,6 +207,7 @@
 			(company-mode)))
 
 ;;; Proof General
+(require 'opam-switch-mode)
 ;; Enable double-hit electric terminator mode
 (setq coq-double-hit-enable t)
 (setq proof-electric-terminator-enable nil)
@@ -243,10 +225,9 @@
   (proof-retract-buffer nil))
 (add-hook 'coq-mode-hook
 		  (lambda ()
-			(local-set-key (kbd "S-<return>") 'electric-indent-just-newline)
 			(local-set-key (kbd "C-c C-o") 'proof-omit-proofs-option-toggle)
-			(local-set-key (kbd "C-c C-r") 'ysc/proof-retract-buffer)))
-
+			(local-set-key (kbd "C-c C-r") 'ysc/proof-retract-buffer)
+			(opam-switch-mode)))
 
 ;;; Company Coq
 (add-hook 'coq-mode-hook
@@ -283,6 +264,23 @@
 			(setq-local compile-command "go build")
 			(eglot-ensure)
 			(company-mode)))
+
+;;; Rust
+(require 'rust-mode)
+(add-hook 'rust-mode-hook
+          (lambda ()
+			;; Set the default compile command to "cargo run" for Rust mode
+			(setq-local compile-command "cargo build")
+			;; Set the max line width to 100
+			(setq-local fill-column 100)
+			;; Indent with space is encouraged in Rust
+			(setq indent-tabs-mode nil)
+			;; Prettify symbols
+			(prettify-symbols-mode)
+			;; Enable company mode
+			(company-mode)
+			;; Enable language server protocol
+			(eglot-ensure)))
 
 ;; Iris (clean-up/comments required)
 (add-hook 'coq-mode-hook
@@ -434,18 +432,6 @@
         ;; This would override `fill-column' if it's an integer.
         (emacs-lisp-docstring-fill-column t))
     (fill-paragraph nil region)))
-
-
-;; (defun resize-to-left-half-screen ()
-;;   (interactive)
-;;   "Resize and move Emacs to take exactly the left half of the screen."
-;;   (let* ((screen-width (display-pixel-width))
-;;          (screen-height (display-pixel-height))
-;;          (frame-width (/ screen-width 2))  ;; Half of screen width
-;;          (frame-height screen-height))
-;;     (set-frame-position (selected-frame) 0 0)
-;;     (set-frame-size (selected-frame) frame-width frame-height t)))
-;; (global-set-key (kbd "s-{") 'resize-to-left-half-screen)
 
 ;; https://emacs.stackexchange.com/a/77387
 (setq frame-resize-pixelwise t)

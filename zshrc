@@ -339,7 +339,6 @@ setopt no_auto_menu
 # tabs -4
 
 # Add opam path to PATH.
-test -r /Users/yunsheng/.opam/opam-init/init.sh && . /Users/yunsheng/.opam/opam-init/init.sh > /dev/null 2> /dev/null || true
 
 # Add homebrew path PATH.
 if [ -f /opt/homebrew/bin/brew ]; then
@@ -362,3 +361,13 @@ fi
 if [ -f ~/.zshrc-local ]; then
 	. ~/.zshrc-local
 fi
+
+
+# BEGIN opam configuration
+# This is useful if you're using opam as it adds:
+#   - the correct directories to the PATH
+#   - auto-completion for the opam binary
+# This section can be safely removed at any time if needed.
+[[ ! -r '/Users/yunsheng/.opam/opam-init/init.zsh' ]] || source '/Users/yunsheng/.opam/opam-init/init.zsh' > /dev/null 2> /dev/null
+# END opam configuration
+export PATH="$HOME/.local/bin:$PATH"

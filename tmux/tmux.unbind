@@ -4,6 +4,7 @@
 
 set-option -gu prefix
 unbind-key -a -n
+unbind-key C-a
 bind-key -n \uF000 source-file ~/.tmux.bind
 
 ## Reset the focus flag.
