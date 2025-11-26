@@ -1,4 +1,4 @@
-;;; Packages and features
+;;; Packages and features  -*- lexical-binding: t; -*-
 ;; Enable installation of MELPA packages
 (require 'package)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
@@ -37,23 +37,18 @@
 ;;; VTerm
 (require 'vterm)
 
-;;; Themes
+;;; Themes and faces
 
 (add-to-list 'custom-theme-load-path "~/.emacs.d/")
-(load-theme 'rustdoc t)
+(load-theme 'ysc t)
 
-(defun ysc/rustdoc-custom-faces ()
-  (rustdoc-with-colors
-    (custom-set-faces
-     ;; Set font size and family
-     '(default ((t :family "Fira Mono" :height 150)))
-     ;; Add "padding" to the tab bar
-     (list 'tab-bar (list (list t (list :background bg :box (list :line-width '(2 . 8) :color bg)))))
-     (list 'tab-bar-tab (list (list t (list :background bg :box nil :underline (list :color fg :style 'double-line :position 5)))))
-     (list 'tab-bar-tab-inactive (list (list t (list :box nil :background bg)))))
-    (set-face-attribute 'font-lock-comment-face nil :slant 'normal)
-    (set-face-attribute 'font-lock-comment-delimiter-face nil :slant 'normal)))
-(ysc/rustdoc-custom-faces)
+(custom-set-faces
+ ;; Set font size and family
+ ;; Note: The `t` here means "for every display (GUI, terminal, etc.)"
+ '(default ((t (:family "Fira Mono" :height 150))))
+ ;; Disable slant comments
+ '(font-lock-comment-face ((t (:slant normal))))
+ '(font-lock-comment-delimiter-face ((t (:slant normal)))))
 
 ;;; Misc
 ;; Maximize frame on start-up
@@ -169,6 +164,10 @@
 (setq make-backup-files nil)
 
 ;;; Flymake
+(use-package flymake
+  :ensure t
+  :custom
+  (flymake-show-diagnostics-at-end-of-line t))
 (add-hook 'flymake-mode-hook
 		  (lambda ()
 			(global-set-key (kbd "s-e") 'flymake-goto-next-error)))
