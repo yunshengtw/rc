@@ -281,16 +281,28 @@
 			(company-mode)
 			;; Enable language server protocol
 			(eglot-ensure)))
-
 (with-eval-after-load 'eglot
   ;; This structure maps to the JSON: { "rust-analyzer": { "diagnostics": { "enable": false } } }
   (setq-default eglot-workspace-configuration
                 '((:rust-analyzer . (:diagnostics (:enable :json-false))))))
 
-;; Iris (clean-up/comments required)
+;;; Iris (clean-up/comments required)
 (add-hook 'coq-mode-hook
 		  (lambda ()
 			(load "~/.emacs.d/iris.el")))
+
+;;; Latex
+(use-package latex
+  :custom
+  (font-latex-user-keyword-classes
+   '(("additional-keywords"
+	  ;; The "{" means that this command takes one mandatory argument
+      (("autoref" "{")
+	   ("cc" "{"))
+	  ;; Face to use for the argument (the command itself will be using the keyword face)
+      font-lock-constant-face
+	  ;; Type command is for `\cmd{arg}`; type declaration is for {\decl body}
+      command))))
 
 ;;; Git
 (require 'magit)
@@ -337,6 +349,15 @@
   (impatient-mode)
   (imp-set-user-filter 'markdown-github-filter)
   (imp-visit-buffer))
+
+;;; Deft
+(use-package deft
+  ;; :bind ("<f8>" . deft)
+  :commands (deft)
+  :config (setq deft-directory "~/Repos/notes/"
+                deft-extensions '("md")
+				deft-recursive t))
+
 
 ;; Mixing code
 ;; (load-file "~/Repos/mixcode/mixcode.el")

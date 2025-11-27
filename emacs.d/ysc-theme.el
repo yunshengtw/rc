@@ -26,7 +26,7 @@
     ("light"   . "#e0e0e0"))
   "Palette for the ysc theme.")
 
-(defmacro ysc-with-colors (&rest body)
+(defmacro ysc-theme-with-colors (&rest body)
   "Execute BODY with colors from `ysc-colors-alist' bound."
   (declare (indent 0))
   (let ((colors (mapcar (lambda (x) (list (intern (car x)) (cdr x)))
@@ -34,7 +34,7 @@
     `(let ,colors
        ,@body)))
 
-(ysc-with-colors
+(ysc-theme-with-colors
   (custom-theme-set-faces
    'ysc
    `(default ((,class (:background ,bg :foreground ,fg))))
@@ -90,6 +90,17 @@
    `(flymake-error-echo-at-eol ((,class (:foreground ,red :slant italic :height 130))))
    `(flymake-warning-echo-at-eol ((,class (:foreground ,orange :slant italic :height 130))))
    `(flymake-note-echo-at-eol ((,class (:foreground ,blue :slant italic :height 130))))
+
+   ;; LaTeX
+   `(font-latex-sectioning-1-face ((,class (:foreground ,fg :height 150 :weight bold))))
+   `(font-latex-sectioning-2-face ((,class (:foreground ,fg :height 150 :weight bold))))
+   `(font-latex-sectioning-3-face ((,class (:foreground ,fg :height 150 :weight bold))))
+   `(font-latex-sectioning-4-face ((,class (:foreground ,fg :height 150 :weight bold))))
+   `(font-latex-italic-face ((,class (:foreground ,fg :height 150 :slant italic))))
+   `(font-latex-bold-face ((,class (:foreground ,fg :height 150 :weight bold))))
+
+   ;; General
+   `(success ((,class (:foreground ,blue :weight bold))))
 
    ;; Tab bars
    `(tab-bar ((,class (:background ,bg
