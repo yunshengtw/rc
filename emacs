@@ -167,10 +167,17 @@
 (use-package flymake
   :ensure t
   :custom
-  (flymake-show-diagnostics-at-end-of-line t))
+  ;; Show diagnostics in new lines (requires Emacs version >= 30)
+  (flymake-show-diagnostics-at-end-of-line 'fancy))
 (add-hook 'flymake-mode-hook
 		  (lambda ()
 			(global-set-key (kbd "s-e") 'flymake-goto-next-error)))
+;; Disable the exclamation marks and question marks in the margin
+(with-eval-after-load 'eglot
+  (dolist (type '(eglot-note eglot-warning eglot-error))
+    (put type 'flymake-overlay-control '((before-string . nil) (after-string . nil)))
+    (put type 'flymake-bitmap nil)))
+
 
 ;;; Editor
 ;; Tab width = 4
@@ -184,12 +191,15 @@
 (setq scroll-conservatively 10000)
 (global-set-key (kbd "s-ㄋ") 'save-buffer)
 
+
 ;;; Language server protocol (eglot)
 (require 'eglot)
 ;; Disable inlay parameter names
-(add-hook 'eglot-managed-mode-hook
-		  (lambda ()
-			(eglot-inlay-hints-mode 0)))
+;; (add-hook 'eglot-managed-mode-hook
+;; 		  (lambda ()
+;; 			(eglot-inlay-hints-mode 0)))
+;; Disable advertising of eglot actions
+(setq eglot-code-action-indications nil)
 
 ;;; Elisp
 (add-hook 'emacs-lisp-mode-hook
@@ -271,6 +281,11 @@
 			(company-mode)
 			;; Enable language server protocol
 			(eglot-ensure)))
+
+(with-eval-after-load 'eglot
+  ;; This structure maps to the JSON: { "rust-analyzer": { "diagnostics": { "enable": false } } }
+  (setq-default eglot-workspace-configuration
+                '((:rust-analyzer . (:diagnostics (:enable :json-false))))))
 
 ;; Iris (clean-up/comments required)
 (add-hook 'coq-mode-hook

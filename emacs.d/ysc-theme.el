@@ -83,6 +83,14 @@
    `(markdown-header-face-3 ((,class (:foreground ,purple :weight bold))))
    `(markdown-code-face ((,class (:foreground ,green))))
 
+   ;; Flymake
+   `(flymake-error ((,class (:underline nil))))
+   `(flymake-warning ((,class (:underline nil))))
+   `(flymake-note ((,class (:underline nil))))
+   `(flymake-error-echo-at-eol ((,class (:foreground ,red :slant italic :height 130))))
+   `(flymake-warning-echo-at-eol ((,class (:foreground ,orange :slant italic :height 130))))
+   `(flymake-note-echo-at-eol ((,class (:foreground ,blue :slant italic :height 130))))
+
    ;; Tab bars
    `(tab-bar ((,class (:background ,bg
 					   :box (:line-width (2 . 8) :color ,bg)))))
