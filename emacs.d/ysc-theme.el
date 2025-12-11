@@ -96,6 +96,7 @@
    `(font-latex-sectioning-2-face ((,class (:foreground ,fg :height 150 :weight bold))))
    `(font-latex-sectioning-3-face ((,class (:foreground ,fg :height 150 :weight bold))))
    `(font-latex-sectioning-4-face ((,class (:foreground ,fg :height 150 :weight bold))))
+   `(font-latex-sectioning-5-face ((,class (:foreground ,fg :height 150 :weight bold))))
    `(font-latex-italic-face ((,class (:foreground ,fg :height 150 :slant italic))))
    `(font-latex-bold-face ((,class (:foreground ,fg :height 150 :weight bold))))
 

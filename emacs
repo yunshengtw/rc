@@ -194,10 +194,23 @@
 
 ;;; Language server protocol (eglot)
 (require 'eglot)
-;; Disable inlay parameter names
-;; (add-hook 'eglot-managed-mode-hook
-;; 		  (lambda ()
-;; 			(eglot-inlay-hints-mode 0)))
+;; Disable inlay parameter names for Rust
+(add-hook 'eglot-managed-mode-hook
+		  (lambda ()
+			(when (derived-mode-p 'rust-mode)
+			  (eglot-inlay-hints-mode -1))))
+(defun toggle-eglot-inlay-hints-mode ()
+  (interactive)
+  (eglot-inlay-hints-mode 'toggle)
+  (when eglot-inlay-hints-mode
+	;; Force refresh the hints
+	;;
+	;; We use `fboundp` here because functions with `--` are internal, and thus the name might
+	;; change in future release
+	(if (fboundp 'eglot--update-hints)
+		(eglot--update-hints (point-min) (point-max))
+	  (message "eglot--update-hints not available"))))
+(global-set-key (kbd "s-h") 'toggle-eglot-inlay-hints-mode)
 ;; Disable advertising of eglot actions
 (setq eglot-code-action-indications nil)
 
@@ -252,7 +265,7 @@
   (with-output-to-temp-buffer "*cheat*"
     (switch-to-buffer-other-window "*cheat*")
     (insert-file-contents "~/.emacs.d/cheat-key.org")))
-(global-set-key (kbd "s-h") 'cheat-sheet)
+(global-set-key (kbd "s-H") 'cheat-sheet)
 
 ;;; Go
 (require 'go-mode)
@@ -282,9 +295,14 @@
 			;; Enable language server protocol
 			(eglot-ensure)))
 (with-eval-after-load 'eglot
-  ;; This structure maps to the JSON: { "rust-analyzer": { "diagnostics": { "enable": false } } }
+  ;; Disable showing immediate diagnostics for Rust to avoid redundant information generated with
+  ;; rust-analyzer.
   (setq-default eglot-workspace-configuration
-                '((:rust-analyzer . (:diagnostics (:enable :json-false))))))
+                '((:rust-analyzer . (:diagnostics (:enable :json-false)
+									 :inlayHints (:bindingModeHints (:enable t)
+												  :typeHints (:enable t)
+												  :chainingHints (:enable t)
+												  :parameterHints (:enable t)))))))
 
 ;;; Iris (clean-up/comments required)
 (add-hook 'coq-mode-hook
@@ -319,7 +337,7 @@
   :mode ("\\.md\\'" . gfm-mode)
   :commands (markdown-mode gfm-mode)
   :config
-  (setq markdown-command "pandoc -t html5"))
+  (setq markdown-command "pandoc -t html5 --mathml"))
 
 (use-package simple-httpd
   :ensure t
