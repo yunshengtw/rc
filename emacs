@@ -302,7 +302,7 @@
 									 :inlayHints (:bindingModeHints (:enable t)
 												  :typeHints (:enable t)
 												  :chainingHints (:enable t)
-												  :parameterHints (:enable t)))))))
+												  :parameterHints (:enable :json-false)))))))
 
 ;;; Iris (clean-up/comments required)
 (add-hook 'coq-mode-hook
