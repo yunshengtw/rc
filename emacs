@@ -194,11 +194,6 @@
 
 ;;; Language server protocol (eglot)
 (require 'eglot)
-;; Disable inlay parameter names for Rust
-(add-hook 'eglot-managed-mode-hook
-		  (lambda ()
-			(when (derived-mode-p 'rust-mode)
-			  (eglot-inlay-hints-mode -1))))
 (defun toggle-eglot-inlay-hints-mode ()
   (interactive)
   (eglot-inlay-hints-mode 'toggle)
@@ -259,6 +254,11 @@
 ;; Fold the bullets when opening a file
 (setq company-coq-initial-fold-state 'bullets)
 
+;;; Iris (clean-up/comments required)
+(add-hook 'coq-mode-hook
+		  (lambda ()
+			(load "~/.emacs.d/iris.el")))
+
 ;;; Cheat Sheet
 (defun cheat-sheet ()
   (interactive)
@@ -294,20 +294,34 @@
 			(company-mode)
 			;; Enable language server protocol
 			(eglot-ensure)))
+;; Disable showing immediate diagnostics for Rust to avoid redundant information generated with
+;; rust-analyzer.
 (with-eval-after-load 'eglot
-  ;; Disable showing immediate diagnostics for Rust to avoid redundant information generated with
-  ;; rust-analyzer.
   (setq-default eglot-workspace-configuration
                 '((:rust-analyzer . (:diagnostics (:enable :json-false)
 									 :inlayHints (:bindingModeHints (:enable t)
 												  :typeHints (:enable t)
 												  :chainingHints (:enable t)
 												  :parameterHints (:enable :json-false)))))))
-
-;;; Iris (clean-up/comments required)
-(add-hook 'coq-mode-hook
+;; Disable inlay parameter names for Rust
+(add-hook 'eglot-managed-mode-hook
 		  (lambda ()
-			(load "~/.emacs.d/iris.el")))
+			(when (derived-mode-p 'rust-mode)
+			  (eglot-inlay-hints-mode -1))))
+
+;;; Python
+;;;
+;;; External dependency: pyright: `npm install -g pyright`
+(add-hook 'python-mode-hook
+		  (lambda ()
+			;; Enable company mode
+			(company-mode)
+			;; Enable language server protocol
+			(eglot-ensure)))
+;; Use pyright for python-mode
+(with-eval-after-load 'eglot
+  (add-to-list 'eglot-server-programs
+               '(python-mode . ("pyright-langserver" "--stdio"))))
 
 ;;; Latex
 (use-package latex
@@ -321,6 +335,9 @@
       font-lock-constant-face
 	  ;; Type command is for `\cmd{arg}`; type declaration is for {\decl body}
       command))))
+
+;;; Docker
+(require 'dockerfile-mode)
 
 ;;; Git
 (require 'magit)
@@ -423,50 +440,6 @@
 			company-dabbrev-other-buffers nil
 			company-dabbrev-ignore-case t
 			company-dabbrev-downcase nil)))
-
-;;; Python
-(require 'elpy)
-(defun ysc/elpy-shell-send-to-point ()
-  (interactive)
-  (push-mark (point-min) nil t)
-  (elpy-shell-send-region-or-buffer)
-  (deactivate-mark))
-(setq python-indent-guess-indent-offset nil)
-(add-hook 'python-mode-hook
-		  (lambda ()
-			(elpy-enable)
-			(local-set-key (kbd "C-c C-<return>") 'ysc/elpy-shell-send-to-point)
-			(local-set-key (kbd "C-c C-c") 'elpy-shell-send-codecell)
-			;; TODO: restarting
-			(local-set-key (kbd "C-c C-n") 'elpy-shell-send-statement-and-step)
-			(local-set-key (kbd "C-<return>") 'elpy-shell-send-statement)
-			))
-;; Unbind elpy keys
-(with-eval-after-load "elpy-shell"
-  (define-key elpy-mode-map (kbd "C-<return>") nil)
-  (define-key elpy-mode-map (kbd "C-c C-n") nil)
-  (define-key elpy-mode-map (kbd "C-c C-c") nil))
-;; (setq python-shell-interpreter "jupyter"
-;;       python-shell-interpreter-args "console --simple-prompt"
-;;       python-shell-prompt-detect-failure-warning nil)
-(setq python-shell-interpreter "ipython3"
-      python-shell-interpreter-args "--simple-prompt --classic")
-;; This suppresses an unimportant warning
-(add-to-list 'python-shell-completion-native-disabled-interpreters
-             "ipython3")
-(add-to-list 'exec-path "~/Library/Python/3.9/bin")
-
-;;; Inline image in the REPL buffer
-(add-hook 'inferior-python-mode-hook
-		  (lambda ()
-			(load-file "~/Repos/comint-mime/comint-mime.el")
-			(comint-mime-setup)
-			(setq comint-move-point-for-output t)
-			(setq comint-scroll-to-bottom-on-input t)
-			(setq comint-scroll-show-maximum-output 'other)
-			))
-;; Potential bug of `comint-mime': Sometimes using `display' in ipython3 would
-;; render `comint-scroll-show-maximum-output' ineffective.
 
 ;;; Stefan Monnier <foo at acm.org>. It is the opposite of fill-paragraph    
 (defun unfill-paragraph (&optional region)
