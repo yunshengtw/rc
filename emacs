@@ -322,6 +322,25 @@
 (with-eval-after-load 'eglot
   (add-to-list 'eglot-server-programs
                '(python-mode . ("pyright-langserver" "--stdio"))))
+;; Identify a project root by the presence of `pyproject.toml`
+;;
+;; Execution flow:
+;; 1. `project-find-functions` and in turn invokes `project-find-pyproject`.
+;; 2. `project-find-pyproject` returns `(cons 'pyproject "/path/to/pyproject/dir")`.
+;; 3. `cl-defmethod` (Emacs' way of defining a generic function) tells `project-root` to return the
+;; tail of an element (which is the project path) whose head is `'pyproject`.
+(with-eval-after-load 'project
+  ;; Define a method to extract the root path from our custom project instance
+  (cl-defmethod project-root ((project (head pyproject)))
+    (cdr project))
+  ;; Define the finder function
+  (defun project-find-pyproject (dir)
+    (let ((root (locate-dominating-file dir "pyproject.toml")))
+      (when root
+        ;; Returns a project instance with the head 'pyproject
+        (cons 'pyproject root))))
+  (add-hook 'project-find-functions #'project-find-pyproject))
+
 
 ;;; Latex
 (use-package latex
