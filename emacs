@@ -358,13 +358,20 @@
 ;;; Docker
 (require 'dockerfile-mode)
 
-;;; Git
+;;; Git (Magit)
 (require 'magit)
 ;; Bind to open magit status buffer
 (global-set-key (kbd "s-G") 'magit-status)
 ;; Unbind to allow `tab-next'
 (with-eval-after-load 'magit-mode
   (define-key magit-mode-map (kbd "C-<tab>") nil))
+
+;;; GitHub (Forge)
+;;;
+;;; Reference: https://docs.magit.vc/forge/Setup-for-Githubcom.html
+(use-package forge
+  :after magit)
+(setq auth-sources '("~/.config/emacs/.authinfo"))
 
 ;;; Markdown (with support for previewing in GitHub style)
 ;; (adapted from https://blog.bitsandbobs.net/blog/emacs-markdown-live-preview/)
