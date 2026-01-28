@@ -380,6 +380,20 @@
 
 (define-key forge-pullreq-mode-map (kbd "g") 'ysc/forge-refresh-and-fetch-topic)
 
+(defun ysc/forge-create-post-same-window ()
+  "Run `forge-create-post' in the same window."
+  (interactive)
+  (let ((display-buffer-overriding-action '(display-buffer-same-window)))
+    (call-interactively 'forge-create-post)))
+(define-key forge-pullreq-mode-map (kbd "C-c C-r") 'ysc/forge-create-post-same-window)
+
+(defun ysc/forge-edit-post-same-window ()
+  "Run `forge-edit-post' in the same window."
+  (interactive)
+  (let ((display-buffer-overriding-action '(display-buffer-same-window)))
+    (call-interactively 'forge-edit-post)))
+(define-key forge-pullreq-mode-map (kbd "C-c C-e") 'ysc/forge-edit-post-same-window)
+
 (setq auth-sources '("~/.config/emacs/.authinfo"))
 ;; Enable file completion when posting with Forge
 (defun ysc/company-files-from-git-root (command &optional arg &rest rest)
