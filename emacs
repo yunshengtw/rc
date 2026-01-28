@@ -376,7 +376,7 @@
   "Refresh the buffer and fetch topics from the forge."
   (interactive)
   (magit-refresh)
-  (call-interactively 'forge-pull))
+  (forge-pull-this-topic))
 
 (define-key forge-pullreq-mode-map (kbd "g") 'ysc/forge-refresh-and-fetch-topic)
 
