@@ -364,7 +364,8 @@
 (global-set-key (kbd "s-G") 'magit-status)
 ;; Unbind to allow `tab-next'
 (with-eval-after-load 'magit-mode
-  (define-key magit-mode-map (kbd "C-<tab>") nil))
+  (define-key magit-mode-map (kbd "C-<tab>") nil)
+  (define-key magit-mode-map (kbd "S-<return>") 'forge-browse))
 
 ;;; GitHub (Forge)
 ;;;
