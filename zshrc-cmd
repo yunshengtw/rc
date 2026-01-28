@@ -1,0 +1,24 @@
+# Tea timer.
+function tt() {
+	countdown $1m && say "tea is ready" && exit 0
+}
+
+# SSH to $1 and attach a tmux session named "remote".
+function ssh-tmux() {
+	ssh $1 -t tmux new-session -A -s remote
+}
+
+# Delete the annoying .DS_Store files.
+function nods() {
+	find . -name .DS_Store -delete
+}
+
+# Run `cargo check --all-targets` but produce only failed files.
+function ccf() {
+		 cargo check --all-targets --message-format=json -q \
+		 	   | jq -r 'select(.reason=="compiler-message" and .message.level=="error")
+			   | .message.spans[] | select(.is_primary) | .file_name' \
+			   | sort -u
+}
+
+alias cafe=caffeinate -dimsu

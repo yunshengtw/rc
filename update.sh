@@ -21,6 +21,7 @@ cp ~/.config/alacritty/alacritty.toml alacritty.toml
 
 # zsh
 cp ~/.zshrc zshrc
+cp ~/.zshrc-cmd zshrc-cmd
 cp ~/.zshrc-ssh zshrc-ssh
 
 # ssh
