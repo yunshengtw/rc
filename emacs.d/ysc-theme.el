@@ -100,6 +100,11 @@
    `(font-latex-italic-face ((,class (:foreground ,fg :height 150 :slant italic))))
    `(font-latex-bold-face ((,class (:foreground ,fg :height 150 :weight bold))))
 
+   ;; Magict / Forge
+   `(forge-pullreq-open ((,class (:foreground ,green :weight bold))))
+   `(forge-pullreq-merged ((,class (:foreground ,purple))))
+   `(forge-pullreq-rejected ((,class (:foreground ,purple :strike-through t))))
+
    ;; General
    `(success ((,class (:foreground ,blue :weight bold))))
 

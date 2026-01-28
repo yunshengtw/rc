@@ -373,6 +373,22 @@
 (use-package forge
   :after magit)
 (setq auth-sources '("~/.config/emacs/.authinfo"))
+;; Enable file completion when posting with Forge
+(defun ysc/company-files-from-git-root (command &optional arg &rest rest)
+  ;; The file forge creates is located in /path/to/repo/.git/magit/posts, but we want
+  ;; auto-completion to happen at the repo level, so we walk through the file hierarchy to search
+  ;; for the git repo root.
+  (let* ((root (or (locate-dominating-file default-directory ".git")
+                   default-directory))
+         (default-directory root))
+    (apply #'company-files command arg rest)))
+(add-hook 'forge-post-mode-hook
+          (lambda ()
+            (setq-local company-backends
+                        (cons #'ysc/company-files-from-git-root
+                              company-backends))
+			(company-mode)))
+
 
 ;;; Markdown (with support for previewing in GitHub style)
 ;; (adapted from https://blog.bitsandbobs.net/blog/emacs-markdown-live-preview/)
