@@ -370,8 +370,16 @@
 ;;; GitHub (Forge)
 ;;;
 ;;; Reference: https://docs.magit.vc/forge/Setup-for-Githubcom.html
-(use-package forge
-  :after magit)
+(require 'forge)
+
+(defun ysc/forge-refresh-and-fetch-topic ()
+  "Refresh the buffer and fetch topics from the forge."
+  (interactive)
+  (magit-refresh)
+  (call-interactively 'forge-pull))
+
+(define-key forge-pullreq-mode-map (kbd "g") 'ysc/forge-refresh-and-fetch-topic)
+
 (setq auth-sources '("~/.config/emacs/.authinfo"))
 ;; Enable file completion when posting with Forge
 (defun ysc/company-files-from-git-root (command &optional arg &rest rest)
