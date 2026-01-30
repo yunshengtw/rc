@@ -360,8 +360,19 @@
 
 ;;; Git (Magit)
 (require 'magit)
+;; Configure repository directories for magit-list-repositories
+(setq magit-repository-directories '(("~/Repos/" . 1)))
+;; Always prompt repository to be opened (it will search for repos in specified
+;; `magit-repository-directories`)
+(defun ysc/magit-open (directory)
+  "Always prompt for a repository directory and open magit-status there."
+  (interactive (list (magit-read-repository)))
+  (let ((display-buffer-overriding-action '(display-buffer-same-window)))
+    (magit-status directory)))
 ;; Bind to open magit status buffer
 (global-set-key (kbd "s-G") 'magit-status)
+(global-set-key (kbd "s-R") 'ysc/magit-open)
+
 ;; Unbind to allow `tab-next'
 (with-eval-after-load 'magit-mode
   (define-key magit-mode-map (kbd "C-<tab>") nil)
