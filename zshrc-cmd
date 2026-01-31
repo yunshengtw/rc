@@ -21,4 +21,7 @@ function ccf() {
 			   | sort -u
 }
 
-alias cafe=caffeinate -dimsu
+alias cafe="caffeinate -dimsu"
+
+# Install `watch` with `brew install watch`.
+alias wm="watch -n 1 memory_pressure"
