@@ -192,6 +192,11 @@
 (global-set-key (kbd "s-ㄋ") 'save-buffer)
 
 
+;;; Company (Auto-completion)
+;; Remove plain-text backends
+(with-eval-after-load 'company
+  (setq company-backends (delete 'company-dabbrev company-backends)))
+
 ;;; Language server protocol (eglot)
 (require 'eglot)
 (defun toggle-eglot-inlay-hints-mode ()
@@ -502,16 +507,6 @@
 ;; (add-hook 'tex-mode-hook
 ;; 		  (lambda ()
 ;; 			(load-file "~/Repos/tikz-emacs/tikz.el")))
-
-(add-hook 'org-mode-hook
-	  (lambda ()
-	    (company-mode)
-	    (setq-local company-backends '(company-dabbrev)
-			company-minimum-prefix-length 2
-			company-dabbrev-minimum-length 2
-			company-dabbrev-other-buffers nil
-			company-dabbrev-ignore-case t
-			company-dabbrev-downcase nil)))
 
 ;;; Stefan Monnier <foo at acm.org>. It is the opposite of fill-paragraph    
 (defun unfill-paragraph (&optional region)
