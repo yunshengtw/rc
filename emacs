@@ -376,7 +376,7 @@
     (magit-status directory)))
 ;; Bind to open magit status buffer
 (global-set-key (kbd "s-G") 'magit-status)
-(global-set-key (kbd "s-R") 'ysc/magit-open)
+(global-set-key (kbd "s-J") 'ysc/magit-open)
 
 ;; Unbind to allow `tab-next'
 (with-eval-after-load 'magit-mode
