@@ -1,0 +1,6 @@
+[[rule]]
+toolName = "run_shell_command"
+# Match anywhere in the JSON args (command, description, etc.)
+argsPattern = "\\bgit\\s+(add|commit)\\b"
+decision = "deny"
+priority = 900

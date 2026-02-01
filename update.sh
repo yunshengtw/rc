@@ -1,9 +1,8 @@
 #!/bin/bash
 
 # emacs
-EMACS_FILES="early-init.el iris.el ysc-theme.el cheat-key.org"
-
 cp ~/.emacs emacs
+EMACS_FILES="early-init.el iris.el ysc-theme.el cheat-key.org"
 for file in $EMACS_FILES; do
 	cp ~/.emacs.d/$file emacs.d/
 done
@@ -29,3 +28,11 @@ cp ~/.ssh/config ssh-config
 
 # skhd
 cp ~/.skhdrc skhdrc
+
+# gemini
+cp ~/.gemini/settings.json gemini/settings.json
+GEMINI_POLICIES="deny-git-add-commit.toml"
+for file in $GEMINI_POLICIES; do
+	cp ~/.gemini/policies/$file gemini/policies/
+done
+

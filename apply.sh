@@ -30,3 +30,10 @@ cp ssh-config ~/.ssh/config
 
 # skhd
 cp skhdrc ~/.skhdrc
+
+# gemini
+cp gemini/settings.json ~/.gemini/settings.json
+mkdir -p ~/.gemini/policies/
+for file in gemini/policies/*.toml; do
+	cp $file ~/.gemini/policies/$(basename $file)
+done

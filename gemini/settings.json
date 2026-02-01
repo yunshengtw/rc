@@ -1,0 +1,19 @@
+{
+  "security": {
+    "auth": {
+      "selectedType": "oauth-personal"
+    }
+  },
+  "general": {
+    "previewFeatures": true
+  },
+  "tools": {
+    "exclude": [
+      "run_shell_command(git commit)",
+      "run_shell_command(git add)"
+    ]
+  },
+  "ui": {
+    "showModelInfoInChat": true
+  }
+}
