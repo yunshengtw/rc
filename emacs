@@ -378,10 +378,17 @@
 (global-set-key (kbd "s-G") 'magit-status)
 (global-set-key (kbd "s-J") 'ysc/magit-open)
 
+(defun ysc/magit-forge-pull-and-refresh ()
+  "Pull from forge, pull from remote with --ff-only, and refresh."
+  (interactive)
+  (forge-pull)
+  (magit-pull-from-pushremote '("--ff-only"))
+  (magit-refresh))
+
 ;; Unbind to allow `tab-next'
-(with-eval-after-load 'magit-mode
-  (define-key magit-mode-map (kbd "C-<tab>") nil)
-  (define-key magit-mode-map (kbd "S-<return>") 'forge-browse))
+(define-key magit-mode-map (kbd "C-<tab>") nil)
+(define-key magit-mode-map (kbd "S-<return>") 'forge-browse)
+(define-key magit-mode-map (kbd "G") 'ysc/magit-forge-pull-and-refresh)
 
 ;;; GitHub (Forge)
 ;;;
