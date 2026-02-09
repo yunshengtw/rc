@@ -16,9 +16,9 @@ function nods() {
 # Run `cargo check --all-targets` but produce only failed files.
 function ccf() {
 		 cargo check --all-targets --message-format=json -q \
-		 	   | jq -r 'select(.reason=="compiler-message" and .message.level=="error")
-			   | .message.spans[] | select(.is_primary) | .file_name' \
-			   | sort -u
+		 |  jq -r 'select(.reason=="compiler-message" and (.message.level=="error" or .message.level=="warning"))
+		 | .message.spans[] | select(.is_primary) | .file_name' \
+		 | sort -u
 }
 
 alias cafe="caffeinate -dimsu"
