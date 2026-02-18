@@ -389,7 +389,6 @@
 
 ;; Unbind to allow `tab-next'
 (define-key magit-mode-map (kbd "C-<tab>") nil)
-(define-key magit-mode-map (kbd "S-<return>") 'forge-browse)
 (define-key magit-mode-map (kbd "G") 'ysc/magit-forge-pull-and-refresh)
 
 ;;; GitHub (Forge)
