@@ -391,6 +391,14 @@
 (define-key magit-mode-map (kbd "C-<tab>") nil)
 (define-key magit-mode-map (kbd "G") 'ysc/magit-forge-pull-and-refresh)
 
+;; Update the default key bindings to visit diff files.
+(define-key magit-hunk-section-map (kbd "RET") #'magit-diff-visit-worktree-file)
+(define-key magit-hunk-section-map (kbd "C-<return>") #'magit-diff-visit-file)
+(define-key magit-hunk-section-map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
+(define-key magit-file-section-map (kbd "RET") #'magit-diff-visit-worktree-file)
+(define-key magit-file-section-map (kbd "C-<return>") #'magit-diff-visit-file)
+(define-key magit-file-section-map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
+
 ;;; GitHub (Forge)
 ;;;
 ;;; Reference: https://docs.magit.vc/forge/Setup-for-Githubcom.html
