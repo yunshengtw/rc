@@ -8,11 +8,12 @@ padding.y = 10
 
 [font]
 
-normal.family = "Fira Mono"
+normal.family = "Source Code Pro"
 normal.style = "Regular"
-bold.family = "Fira Mono"
-italic.family = "Fira Mono"
-bold_italic.family = "Fira Mono"
+bold.family = "Source Code Pro"
+bold.style = "Medium"
+italic.family = "Source Code Pro"
+bold_italic.family = "Source Code Pro"
 
 size = 14.0
 

@@ -45,7 +45,9 @@
 (custom-set-faces
  ;; Set font size and family
  ;; Note: The `t` here means "for every display (GUI, terminal, etc.)"
- '(default ((t (:family "Fira Mono" :height 150))))
+ '(default ((t (:family "Source Code Pro" :height 150 :weight regular))))
+ '(bold ((t (:family "Source Code Pro" :weight bold))))
+ '(bold-italic ((t (:family "Source Code Pro" :weight medium :slant italic))))
  ;; Disable slant comments
  '(font-lock-comment-face ((t (:slant normal))))
  '(font-lock-comment-delimiter-face ((t (:slant normal)))))
