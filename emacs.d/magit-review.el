@@ -645,6 +645,7 @@ The plist contains :range, :args, and optional :error."
       (insert "Keys:\n")
       (insert "- `TAB` toggle section\n")
       (insert "- `RET` visit file\n")
+      (insert "- `g` refresh buffer\n")
       (insert "- `s` mark reviewed\n")
       (insert "- `k` unmark reviewed\n")
       (insert "- `u` undo worktree status change\n")
@@ -658,17 +659,62 @@ The plist contains :range, :args, and optional :error."
           (setq section (oref section parent)))
         (and section (oref section value)))))
 
+(defun ysc/magit-review--current-file-repo-root ()
+  "Return repository root for current buffer file."
+  (let ((buffer-file (or (buffer-file-name)
+                         (user-error "Current buffer has no file"))))
+    (or (magit-toplevel (file-name-directory buffer-file))
+        (user-error "Current buffer file is not inside a Git repository"))))
+
+(defun ysc/magit-review--current-file-repo-path (&optional root)
+  "Return current buffer file path relative to ROOT."
+  (let* ((buffer-file (or (buffer-file-name)
+                          (user-error "Current buffer has no file")))
+         (root (or root (ysc/magit-review--current-file-repo-root)))
+         (file (ysc/magit-review--normalize-path
+                (file-relative-name buffer-file root))))
+    (let ((default-directory root))
+      (unless (magit-git-success "ls-files" "--error-unmatch" "--" file)
+        (user-error "Current buffer file is not tracked in this repository")))
+    file))
+
+(defun ysc/magit-review--latest-commit-for-file (file &optional root)
+  "Return latest commit oid in HEAD that touched FILE, or nil.
+FILE must be repository-relative."
+  (let ((root (or root
+                  (when-let ((buffer-file (buffer-file-name)))
+                    (magit-toplevel (file-name-directory buffer-file)))
+                  (magit-toplevel)
+                  (user-error "Not inside a Git repository"))))
+    (let ((default-directory root))
+      (magit-git-string "log" "-1" "--format=%H" "--" file))))
+
 (defun ysc/magit-review-mark-file-reviewed ()
   "Mark the file at point as reviewed at its latest commit."
   (interactive)
   (let* ((file (or (ysc/magit-review--file-at-point)
                    (user-error "No file at point")))
          (commit (or (gethash file ysc/magit-review--latest-commits)
+                     (ysc/magit-review--latest-commit-for-file file)
                      (user-error "No commit found for file `%s`" file)))
          (tracking (ysc/magit-review--read-tracking-table)))
     (puthash file commit tracking)
     (ysc/magit-review--write-tracking-table tracking)
     (magit-refresh-buffer)
+    (message "Marked %s reviewed at %s" file (ysc/magit-review--short-oid commit))))
+
+(defun ysc/magit-review-mark-current-file-reviewed ()
+  "Mark current buffer file as reviewed at its latest committed revision."
+  (interactive)
+  (let* ((root (ysc/magit-review--current-file-repo-root))
+         file commit tracking)
+    (let ((default-directory root))
+      (setq file (ysc/magit-review--current-file-repo-path root))
+      (setq commit (or (ysc/magit-review--latest-commit-for-file file root)
+                       (user-error "No commit found for file `%s`" file)))
+      (setq tracking (ysc/magit-review--read-tracking-table))
+      (puthash file commit tracking)
+      (ysc/magit-review--write-tracking-table tracking))
     (message "Marked %s reviewed at %s" file (ysc/magit-review--short-oid commit))))
 
 (defun ysc/magit-review-unmark-file-reviewed ()
@@ -749,6 +795,7 @@ The plist contains :range, :args, and optional :error."
 
 (with-eval-after-load 'magit
   (keymap-set magit-mode-map "R" #'ysc/magit-review)
+  (keymap-set global-map "s-R" #'ysc/magit-review-mark-current-file-reviewed)
   (ignore-errors
     (transient-remove-suffix 'magit-dispatch "R"))
   (transient-insert-suffix 'magit-dispatch "o"
