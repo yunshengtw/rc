@@ -31,22 +31,32 @@
   :type 'string
   :group 'ysc-magit-review)
 
-(defcustom ysc/magit-review-target-branch nil
+(defcustom ysc/magit-review-base-branch nil
   "Branch used as the review base.
-When nil, fallback to `ysc/magit-review-default-target-branches'."
+When nil, fallback to `ysc/magit-review-default-base-branches'."
   :type '(choice (const :tag "Auto" nil)
                  (string :tag "Branch"))
   :group 'ysc-magit-review)
 
-(defcustom ysc/magit-review-default-target-branches
+(defcustom ysc/magit-review-default-base-branches
   '("master" "main" "origin/master" "origin/main")
-  "Fallback base branches used when `ysc/magit-review-target-branch' is nil."
+  "Fallback base branches used when `ysc/magit-review-base-branch' is nil."
   :type '(repeat string)
   :group 'ysc-magit-review)
 
+(define-obsolete-variable-alias
+  'ysc/magit-review-target-branch
+  'ysc/magit-review-base-branch
+  "ysc/magit-review")
+
+(define-obsolete-variable-alias
+  'ysc/magit-review-default-target-branches
+  'ysc/magit-review-default-base-branches
+  "ysc/magit-review")
+
 (defvar-local ysc/magit-review--range nil)
 (defvar-local ysc/magit-review--commit-range nil)
-(defvar-local ysc/magit-review--target nil)
+(defvar-local ysc/magit-review--base nil)
 (defvar-local ysc/magit-review--latest-commits nil)
 (defvar-local ysc/magit-review--worktree-tracking nil)
 (defvar-local ysc/magit-review--head-tracking nil)
@@ -72,26 +82,26 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
     (when (and root (file-in-directory-p file root))
       (file-relative-name file root))))
 
-(defun ysc/magit-review--resolve-target-branch ()
-  "Return the target branch used for comparison."
+(defun ysc/magit-review--resolve-base-branch ()
+  "Return the base branch used for comparison."
   (cond
-   ((and ysc/magit-review-target-branch
-         (magit-rev-verify ysc/magit-review-target-branch))
-    ysc/magit-review-target-branch)
-   (ysc/magit-review-target-branch
-    (user-error "Target branch `%s` not found" ysc/magit-review-target-branch))
-   ((cl-find-if #'magit-rev-verify ysc/magit-review-default-target-branches))
+   ((and ysc/magit-review-base-branch
+         (magit-rev-verify ysc/magit-review-base-branch))
+    ysc/magit-review-base-branch)
+   (ysc/magit-review-base-branch
+    (user-error "Base branch `%s` not found" ysc/magit-review-base-branch))
+   ((cl-find-if #'magit-rev-verify ysc/magit-review-default-base-branches))
    (t
-    (user-error "No target branch found (tried: %s)"
-                (string-join ysc/magit-review-default-target-branches ", ")))))
+    (user-error "No base branch found (tried: %s)"
+                (string-join ysc/magit-review-default-base-branches ", ")))))
 
-(defun ysc/magit-review--diff-range (target)
-  "Return diff range from TARGET to HEAD."
-  (format "%s...HEAD" target))
+(defun ysc/magit-review--diff-range (base)
+  "Return diff range from BASE to HEAD."
+  (format "%s...HEAD" base))
 
-(defun ysc/magit-review--commit-range (target)
-  "Return commit range from TARGET to HEAD."
-  (format "%s..HEAD" target))
+(defun ysc/magit-review--commit-range (base)
+  "Return commit range from BASE to HEAD."
+  (format "%s..HEAD" base))
 
 (defun ysc/magit-review--changed-files (range)
   "Return files changed in RANGE."
@@ -248,6 +258,12 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
             (insert (propertize (make-string dot-len ?.)
                                 'font-lock-face 'shadow))))))))
 
+(defun ysc/magit-review--diffstat-graph-string (numstat)
+  "Return diffstat graph string for NUMSTAT."
+  (with-temp-buffer
+    (ysc/magit-review--insert-diffstat-graph numstat)
+    (buffer-string)))
+
 (defun ysc/magit-review--file-heading-string (file changed-in-worktree)
   "Return file heading string for FILE."
   (magit-format-file 'stat
@@ -271,21 +287,20 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
         (setq count-width (max count-width (string-width count-str)))))
     (cons file-width count-width)))
 
-(defun ysc/magit-review--insert-file-heading (file changed-in-worktree numstat)
-  "Insert heading line for FILE."
+(defun ysc/magit-review--file-heading (file changed-in-worktree numstat)
+  "Return heading line text for FILE."
   (let* ((name (ysc/magit-review--file-heading-string file changed-in-worktree))
          (file-width (or ysc/magit-review--stat-file-width (string-width name)))
          (total (plist-get numstat :total)))
-    (insert name)
-    (insert (make-string (max 1 (1+ (- file-width (string-width name)))) ?\s))
-    (insert "| ")
-    (insert
+    (concat
+     name
+     (make-string (max 1 (1+ (- file-width (string-width name)))) ?\s)
+     "| "
      (format (format "%%%ds " (or ysc/magit-review--stat-count-width 3))
              (if total
                  (number-to-string total)
-               "Bin")))
-    (ysc/magit-review--insert-diffstat-graph numstat)
-    (insert "\n")))
+               "Bin"))
+     (ysc/magit-review--diffstat-graph-string numstat))))
 
 (defun ysc/magit-review--wash-hunk ()
   "Wash one diff hunk into a `magit-hunk-section'."
@@ -338,21 +353,21 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
                     "  (no textual diff)\n"))))))
     (set-marker end-marker nil)))
 
-(defun ysc/magit-review--insert-file-diff (file status target tracked)
+(defun ysc/magit-review--insert-file-diff (file status base tracked)
   "Insert expandable diff for FILE according to STATUS."
-  (let ((base (pcase status
-                ('not-reviewed target)
-                ('changed-after-reviewed tracked)
-                (_ nil))))
-    (when base
+  (let ((comparison-base (pcase status
+                           ('not-reviewed base)
+                           ('changed-after-reviewed tracked)
+                           (_ nil))))
+    (when comparison-base
       (magit-insert-section-body
-        (insert (propertize (format "Diff against %s\n" base)
+        (insert (propertize (format "Diff against %s\n" comparison-base)
                             'font-lock-face 'shadow))
-        (if (not (magit-rev-verify base))
-            (insert (format "Cannot resolve base revision `%s`.\n\n" base))
+        (if (not (magit-rev-verify comparison-base))
+            (insert (format "Cannot resolve base revision `%s`.\n\n" comparison-base))
           (let ((beg (point)))
             (magit-git-insert "diff" "-p" "--no-prefix" "--no-color" "--no-ext-diff"
-                              (format "%s..HEAD" base)
+                              (format "%s..HEAD" comparison-base)
                               "--" file)
             (when (= beg (point))
               (insert "  (no changes)\n"))
@@ -369,8 +384,9 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
                       (list :add 0 :del 0 :total 0)))
          (tracked (gethash file ysc/magit-review--worktree-tracking)))
     (magit-insert-section (review-file file t)
-      (ysc/magit-review--insert-file-heading file changed-in-worktree numstat)
-      (ysc/magit-review--insert-file-diff file status ysc/magit-review--target tracked))))
+      (magit-insert-heading
+        (ysc/magit-review--file-heading file changed-in-worktree numstat))
+      (ysc/magit-review--insert-file-diff file status ysc/magit-review--base tracked))))
 
 (defun ysc/magit-review--insert-subsection (heading files)
   "Insert a foldable subsection with HEADING and FILES."
@@ -388,10 +404,10 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
 
 (defun ysc/magit-review-refresh-buffer ()
   "Refresh `ysc/magit-review-mode' buffer."
-  (let* ((target (or ysc/magit-review--target
-                     (ysc/magit-review--resolve-target-branch)))
-         (range (ysc/magit-review--diff-range target))
-         (commit-range (ysc/magit-review--commit-range target))
+  (let* ((base (or ysc/magit-review--base
+                   (ysc/magit-review--resolve-base-branch)))
+         (range (ysc/magit-review--diff-range base))
+         (commit-range (ysc/magit-review--commit-range base))
          (tracking-file (ysc/magit-review--tracking-file-path))
          (worktree-tracked-table (ysc/magit-review--read-tracking-table))
          (head-tracked-table (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
@@ -406,7 +422,7 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
          reviewed-files)
     (setq-local ysc/magit-review--range range)
     (setq-local ysc/magit-review--commit-range commit-range)
-    (setq-local ysc/magit-review--target target)
+    (setq-local ysc/magit-review--base base)
     (setq-local ysc/magit-review--latest-commits latest-commits)
     (setq-local ysc/magit-review--numstat-table numstat-table)
     (setq-local ysc/magit-review--worktree-tracking worktree-tracked-table)
@@ -447,7 +463,7 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
                 (magit--propertize-face (format "(%d)" (length changed-files))
                                         'magit-section-child-count)))
       (magit-insert-section-body
-        (insert (format "Target branch: %s\n" target))
+        (insert (format "Base branch: %s\n" base))
         (insert (format "Tracking file: %s\n\n"
                         (file-relative-name tracking-file (magit-toplevel))))
         (ysc/magit-review--insert-subsection
@@ -556,7 +572,7 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
     (user-error "Not inside a Git repository"))
   (magit-setup-buffer #'ysc/magit-review-mode nil
     :directory (magit-toplevel)
-    (ysc/magit-review--target (ysc/magit-review--resolve-target-branch))))
+    (ysc/magit-review--base (ysc/magit-review--resolve-base-branch))))
 
 (with-eval-after-load 'magit
   (ignore-errors
