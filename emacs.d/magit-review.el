@@ -782,6 +782,15 @@ FILE must be repository-relative."
           (message "Converted %s to Not reviewed" (car eligible))
         (message "Converted %d files to Not reviewed" (length eligible))))))
 
+(defun ysc/magit-review--clear-file-visibility-cache ()
+  "Drop cached visibility entries for file sections.
+This avoids previously non-expandable files being forced open when
+changing review diff mode and they become expandable."
+  (setq-local magit-section-visibility-cache
+              (cl-remove-if (lambda (entry)
+                              (eq (caaar entry) 'file))
+                            magit-section-visibility-cache)))
+
 (defun ysc/magit-review-toggle-diff-mode ()
   "Toggle diff mode between `incremental' and `full' in current review buffer."
   (interactive)
@@ -790,6 +799,7 @@ FILE must be repository-relative."
                   'full
                 'incremental))
   (setq-local ysc/magit-review--base (ysc/magit-review--resolve-base-branch))
+  (ysc/magit-review--clear-file-visibility-cache)
   (magit-refresh-buffer)
   (message "Reviewed diff: %s" (symbol-name ysc/magit-review-diff-mode)))
 
