@@ -678,6 +678,17 @@ The plist contains :range, :args, and optional :error."
           (setq section (oref section parent)))
         (and section (oref section value)))))
 
+(defun ysc/magit-review--selected-files ()
+  "Return selected files, or the file at point.
+Like Magit's selective staging commands, use region selection when
+available and otherwise operate on the current file section."
+  (let ((files (or (magit-region-values 'file t)
+                   (when-let ((file (ysc/magit-review--file-at-point)))
+                     (list file)))))
+    (unless files
+      (user-error "No file at point"))
+    (delete-dups (copy-sequence files))))
+
 (defun ysc/magit-review--current-file-repo-root ()
   "Return repository root for current buffer file."
   (let ((buffer-file (or (buffer-file-name)
@@ -708,22 +719,31 @@ FILE must be repository-relative."
     (let ((default-directory root))
       (magit-git-string "log" "-1" "--format=%H" "--" file))))
 
-(defun ysc/magit-review-mark-file-reviewed ()
-  "Mark the file at point as reviewed at its latest commit."
-  (interactive)
-  (let* ((file (or (ysc/magit-review--file-at-point)
-                   (user-error "No file at point")))
-         (ranges (ysc/magit-review--active-ranges))
+(defun ysc/magit-review--mark-files-reviewed (files)
+  "Mark FILES as reviewed at their latest commits."
+  (let* ((ranges (ysc/magit-review--active-ranges))
          (commit-range (plist-get ranges :commit-range))
-         (commit (or (gethash file ysc/magit-review--latest-commits)
-                     (magit-git-string "rev-list" "-1" commit-range "--" file)
-                     (ysc/magit-review--latest-commit-for-file file)
-                     (user-error "No commit found for file `%s`" file)))
-         (tracking (ysc/magit-review--read-tracking-table)))
-    (puthash file commit tracking)
+         (tracking (ysc/magit-review--read-tracking-table))
+         commits)
+    (dolist (file files)
+      (let ((commit (or (gethash file ysc/magit-review--latest-commits)
+                        (magit-git-string "rev-list" "-1" commit-range "--" file)
+                        (ysc/magit-review--latest-commit-for-file file)
+                        (user-error "No commit found for file `%s`" file))))
+        (puthash file commit tracking)
+        (push (cons file commit) commits)))
     (ysc/magit-review--write-tracking-table tracking)
     (magit-refresh-buffer)
-    (message "Marked %s reviewed at %s" file (ysc/magit-review--short-oid commit))))
+    (setq commits (nreverse commits))
+    (if (= (length commits) 1)
+        (pcase-let ((`(,file . ,commit) (car commits)))
+          (message "Marked %s reviewed at %s" file (ysc/magit-review--short-oid commit)))
+      (message "Marked %d files reviewed" (length commits)))))
+
+(defun ysc/magit-review-mark-file-reviewed ()
+  "Mark selected files, or file at point, as reviewed."
+  (interactive)
+  (ysc/magit-review--mark-files-reviewed (ysc/magit-review--selected-files)))
 
 (defun ysc/magit-review-mark-current-file-reviewed ()
   "Mark current buffer file as reviewed at its latest committed revision."
@@ -740,18 +760,27 @@ FILE must be repository-relative."
     (message "Marked %s reviewed at %s" file (ysc/magit-review--short-oid commit))))
 
 (defun ysc/magit-review-unmark-file-reviewed ()
-  "Convert file at point to `Not reviewed'."
+  "Convert selected files, or file at point, to `Not reviewed'."
   (interactive)
-  (let* ((file (or (ysc/magit-review--file-at-point)
-                   (user-error "No file at point")))
-         (status (gethash file ysc/magit-review--status-table)))
-    (unless (memq status '(reviewed changed-after-reviewed))
-      (user-error "File `%s` is already Not reviewed" file))
+  (let* ((files (ysc/magit-review--selected-files))
+         eligible)
+    (dolist (file files)
+      (when (memq (gethash file ysc/magit-review--status-table)
+                  '(reviewed changed-after-reviewed))
+        (push file eligible)))
+    (setq eligible (nreverse eligible))
+    (unless eligible
+      (if (= (length files) 1)
+          (user-error "File `%s` is already Not reviewed" (car files))
+        (user-error "Selected files are already Not reviewed")))
     (let ((tracking (ysc/magit-review--read-tracking-table)))
-      (remhash file tracking)
+      (dolist (file eligible)
+        (remhash file tracking))
       (ysc/magit-review--write-tracking-table tracking)
       (magit-refresh-buffer)
-      (message "Converted %s to Not reviewed" file))))
+      (if (= (length eligible) 1)
+          (message "Converted %s to Not reviewed" (car eligible))
+        (message "Converted %d files to Not reviewed" (length eligible))))))
 
 (defun ysc/magit-review-toggle-diff-mode ()
   "Toggle diff mode between `incremental' and `full' in current review buffer."
@@ -765,27 +794,37 @@ FILE must be repository-relative."
   (message "Reviewed diff: %s" (symbol-name ysc/magit-review-diff-mode)))
 
 (defun ysc/magit-review-undo-file-review ()
-  "Undo worktree review status changes for file at point by restoring HEAD status."
+  "Restore selected files, or file at point, to HEAD review status."
   (interactive)
-  (let* ((file (or (ysc/magit-review--file-at-point)
-                   (user-error "No file at point")))
-         (status (gethash file ysc/magit-review--status-table))
-         (head-status (gethash file ysc/magit-review--head-status-table)))
-    (if (eq status head-status)
-        (message "No worktree review-status change for %s" file)
+  (let* ((files (ysc/magit-review--selected-files))
+         changed)
+    (dolist (file files)
+      (unless (eq (gethash file ysc/magit-review--status-table)
+                  (gethash file ysc/magit-review--head-status-table))
+        (push file changed)))
+    (setq changed (nreverse changed))
+    (if (null changed)
+        (if (= (length files) 1)
+            (message "No worktree review-status change for %s" (car files))
+          (message "No worktree review-status changes in selection"))
       (let* ((tracking (ysc/magit-review--read-tracking-table))
              (head-tracking (or ysc/magit-review--head-tracking
                                 (ysc/magit-review--read-tracking-table-from-revision "HEAD")))
-             (missing (make-symbol "missing"))
-             (head-entry (gethash file head-tracking missing)))
-        (if (eq head-entry missing)
-            (remhash file tracking)
-          (puthash file head-entry tracking))
+             (missing (make-symbol "missing")))
+        (dolist (file changed)
+          (let ((head-entry (gethash file head-tracking missing)))
+            (if (eq head-entry missing)
+                (remhash file tracking)
+              (puthash file head-entry tracking))))
         (ysc/magit-review--write-tracking-table tracking)
         (magit-refresh-buffer)
-        (message "Restored %s to HEAD review status (%s)"
-                 file
-                 (ysc/magit-review--status-label head-status))))))
+        (if (= (length changed) 1)
+            (let* ((file (car changed))
+                   (head-status (gethash file ysc/magit-review--head-status-table)))
+              (message "Restored %s to HEAD review status (%s)"
+                       file
+                       (ysc/magit-review--status-label head-status)))
+          (message "Restored %d files to HEAD review status" (length changed)))))))
 
 (defvar ysc/magit-review-mode-map
   (let ((map (make-sparse-keymap)))
