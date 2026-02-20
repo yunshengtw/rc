@@ -408,46 +408,65 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
         (magit-wash-sequence #'ysc/magit-review--wash-hunk)
         (when (< (point) end-marker)
           (delete-region (point) end-marker)))
-       (t
-        (let ((raw (buffer-substring-no-properties beg end-marker)))
-          (delete-region beg end-marker)
-          ;; Keep fallback text in a hunk section so hiding/showing file
-          ;; sections always toggles this content as expected.
-          (magit-insert-section
-              ( hunk '(fallback) nil
-                :from-range '(0 0)
-                :to-range '(0 0))
-            (magit-insert-heading
-              (propertize
-               (if (string-match-p "^Binary files " raw)
-                   "(binary diff)"
-                 "(no textual diff)")
-               'font-lock-face 'magit-diff-hunk-heading)))))))
+	       (t
+	       (let ((raw (buffer-substring-no-properties beg end-marker)))
+	         (delete-region beg end-marker)
+	          ;; Keep unparsed diff text in a hunk section so hiding/showing file
+	          ;; sections always toggles this content as expected.
+	          (let ((lines (split-string raw "\n" t)))
+	            (when lines
+	              (magit-insert-section
+	                  ( hunk '(fallback) nil
+	                    :from-range '(0 0)
+	                    :to-range '(0 0))
+	                (magit-insert-heading (concat (car lines) "\n"))
+	                (dolist (line (cdr lines))
+	                  (insert line "\n")))))))))
     (set-marker end-marker nil)))
+
+(defun ysc/magit-review--diff-spec (status base tracked)
+  "Return diff spec plist for STATUS.
+The plist contains :range, :args, and optional :error."
+  (pcase status
+    ('not-reviewed
+     (let ((range (format "%s..HEAD" base)))
+       (if (magit-rev-verify base)
+           (list :range range :args (list range))
+         (list :range range
+               :error (format "Cannot resolve revision `%s`." base)))))
+    ('changed-after-reviewed
+     (if (and tracked (magit-rev-verify tracked))
+         (list :range (format "%s..HEAD" tracked)
+               :args (list (format "%s..HEAD" tracked)))
+       (list :range (if tracked
+                        (format "%s..HEAD" tracked)
+                      "<missing-review-commit>..HEAD")
+             :error "Cannot resolve the tracked review commit.")))
+    ('reviewed
+     (if (magit-rev-verify "HEAD")
+         (list :range "HEAD..WORKTREE" :args (list "HEAD"))
+       (list :range "HEAD..WORKTREE"
+             :error "Cannot resolve revision `HEAD`.")))
+    (_ nil)))
 
 (defun ysc/magit-review--insert-file-diff (file status base tracked)
   "Insert expandable diff for FILE according to STATUS."
-  (let ((comparison-base (pcase status
-                           ('not-reviewed base)
-                           ('reviewed base)
-                           ('changed-after-reviewed tracked)
-                           (_ nil))))
-    (when comparison-base
-      (magit-insert-section-body
-        (insert (propertize (format "Diff against %s\n" comparison-base)
-                            'font-lock-face 'shadow))
-        (if (not (magit-rev-verify comparison-base))
-            (insert (format "Cannot resolve base revision `%s`.\n\n" comparison-base))
-          (let ((beg (point)))
-            (magit-git-insert "diff" "-p" "--no-prefix" "--no-color" "--no-ext-diff"
-                              (format "%s..HEAD" comparison-base)
-                              "--" file)
-            (when (= beg (point))
-              (insert "  (no changes)\n"))
-            (ysc/magit-review--wash-diff-into-hunks beg (point))
-            (unless (bolp)
-              (insert "\n"))
-            (insert "\n")))))))
+  (when-let ((spec (ysc/magit-review--diff-spec status base tracked)))
+    (magit-insert-section-body
+      (insert (propertize (format "Diff range: %s\n" (plist-get spec :range))
+                          'font-lock-face 'shadow))
+      (if-let ((error (plist-get spec :error)))
+          (insert (format "%s\n\n" error))
+        (let ((beg (point)))
+          (apply #'magit-git-insert
+                 (append (list "diff" "-p" "--no-prefix" "--no-color" "--no-ext-diff")
+                         (plist-get spec :args)
+                         (list "--" file)))
+          (when (< beg (point))
+            (ysc/magit-review--wash-diff-into-hunks beg (point)))
+          (unless (bolp)
+            (insert "\n"))
+          (insert "\n"))))))
 
 (defun ysc/magit-review--insert-file (file)
   "Insert FILE section."
