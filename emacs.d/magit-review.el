@@ -73,7 +73,6 @@ for Changed after reviewed and Reviewed categories."
 
 (defvar-local ysc/magit-review--base nil)
 (defvar-local ysc/magit-review--latest-commits nil)
-(defvar-local ysc/magit-review--worktree-tracking nil)
 (defvar-local ysc/magit-review--head-tracking nil)
 (defvar-local ysc/magit-review--status-table nil)
 (defvar-local ysc/magit-review--head-status-table nil)
@@ -235,23 +234,27 @@ This batches git queries instead of spawning one process per file."
           :del del
           :total (and add del (+ add del)))))
 
-(defun ysc/magit-review--file-numstat (range file)
-  "Return plist with numstat for FILE in RANGE."
-  (if-let* ((line (car (magit-git-lines "diff" "--numstat" range "--" file)))
+(defun ysc/magit-review--numstat-for-file-and-args (file args)
+  "Return plist with numstat for FILE using diff ARGS."
+  (if-let* ((line (car (apply #'magit-git-lines
+                              (append (list "diff" "--numstat")
+                                      args
+                                      (list "--" file)))))
             (_ (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t" line)))
       (ysc/magit-review--numstat-from-strings
        (match-string 1 line)
        (match-string 2 line))
     ysc/magit-review--zero-numstat))
 
-(defun ysc/magit-review--numstat-table (range files)
-  "Return hash table mapping FILES to numstat plists in RANGE."
+(defun ysc/magit-review--numstat-table-for-args (args files)
+  "Return hash table mapping FILES to numstat plists for diff ARGS."
   (let ((table (make-hash-table :test 'equal)))
     (when files
       (let ((file-set (make-hash-table :test 'equal)))
         (dolist (file files)
           (puthash file t file-set))
-        (dolist (line (magit-git-lines "diff" "--numstat" range))
+        (dolist (line (apply #'magit-git-lines
+                             (append (list "diff" "--numstat") args)))
           (when (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t\\(.+\\)\\'" line)
             (let ((file (ysc/magit-review--normalize-path (match-string 3 line))))
               (when (gethash file file-set)
@@ -262,8 +265,12 @@ This batches git queries instead of spawning one process per file."
                          table)))))))
     (dolist (file files)
       (unless (gethash file table)
-        (puthash file (ysc/magit-review--file-numstat range file) table)))
+        (puthash file (ysc/magit-review--numstat-for-file-and-args file args) table)))
     table))
+
+(defun ysc/magit-review--numstat-table (range files)
+  "Return hash table mapping FILES to numstat plists in RANGE."
+  (ysc/magit-review--numstat-table-for-args (list range) files))
 
 (defun ysc/magit-review--commit-equal-p (a b)
   "Return non-nil when commit A and B refer to the same revision."
@@ -464,24 +471,24 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
                   (insert line "\n")))))))))
     (set-marker end-marker nil)))
 
-(defun ysc/magit-review--diff-spec (status base tracked)
+(defun ysc/magit-review--base-diff-spec (base base-valid)
+  "Return BASE...HEAD diff spec for BASE using BASE-VALID."
+  (let ((range (format "%s...HEAD" base)))
+    (if base-valid
+        (list :range range :args (list range))
+      (list :range range
+            :error (format "Cannot resolve revision `%s`." base)))))
+
+(defun ysc/magit-review--diff-spec (status base tracked base-valid head-valid)
   "Return diff spec plist for STATUS.
 The plist contains :range, :args, and optional :error."
   (pcase status
     ('not-reviewed
-     (let ((range (format "%s...HEAD" base)))
-       (if (magit-rev-verify base)
-           (list :range range :args (list range))
-         (list :range range
-               :error (format "Cannot resolve revision `%s`." base)))))
+     (ysc/magit-review--base-diff-spec base base-valid))
     ('changed-after-reviewed
      (pcase ysc/magit-review-diff-mode
        ('full
-        (let ((range (format "%s...HEAD" base)))
-          (if (magit-rev-verify base)
-              (list :range range :args (list range))
-            (list :range range
-                  :error (format "Cannot resolve revision `%s`." base)))))
+        (ysc/magit-review--base-diff-spec base base-valid))
        (_
         (if (and tracked (magit-rev-verify tracked))
             (list :range (format "%s..HEAD" tracked)
@@ -493,31 +500,17 @@ The plist contains :range, :args, and optional :error."
     ('reviewed
      (pcase ysc/magit-review-diff-mode
        ('full
-        (let ((range (format "%s...HEAD" base)))
-          (if (magit-rev-verify base)
-              (list :range range :args (list range))
-            (list :range range
-                  :error (format "Cannot resolve revision `%s`." base)))))
+        (ysc/magit-review--base-diff-spec base base-valid))
        (_
-        (if (magit-rev-verify "HEAD")
+        (if head-valid
             (list :range "HEAD..WORKTREE" :args (list "HEAD"))
           (list :range "HEAD..WORKTREE"
                 :error "Cannot resolve revision `HEAD`.")))))
     (_ nil)))
 
-(defun ysc/magit-review--numstat-for-diff-spec (file spec)
-  "Return FILE numstat plist according to SPEC."
-  (if (or (null spec) (plist-get spec :error))
-      ysc/magit-review--zero-numstat
-    (if-let* ((line (car (apply #'magit-git-lines
-                                (append (list "diff" "--numstat")
-                                        (plist-get spec :args)
-                                        (list "--" file)))))
-              (_ (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t" line)))
-        (ysc/magit-review--numstat-from-strings
-         (match-string 1 line)
-         (match-string 2 line))
-      ysc/magit-review--zero-numstat)))
+(defun ysc/magit-review--diff-args-key (args)
+  "Return a stable hash key for diff ARGS."
+  (string-join args "\0"))
 
 (defun ysc/magit-review--insert-file-diff (file spec)
   "Insert expandable diff for FILE using SPEC."
@@ -584,8 +577,11 @@ The plist contains :range, :args, and optional :error."
          (head-tracked-table (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
          (changed-files (ysc/magit-review--changed-files range))
          (latest-commits (ysc/magit-review--latest-commit-table commit-range changed-files))
+         (base-valid (magit-rev-verify base))
+         (head-valid (magit-rev-verify "HEAD"))
          (total-numstat-table (ysc/magit-review--numstat-table total-range changed-files))
          (numstat-table (make-hash-table :test 'equal))
+         (numstat-groups (make-hash-table :test 'equal))
          (diff-spec-table (make-hash-table :test 'equal))
          (binary-table (make-hash-table :test 'equal))
          (status-table (make-hash-table :test 'equal))
@@ -600,7 +596,6 @@ The plist contains :range, :args, and optional :error."
     (setq-local ysc/magit-review--numstat-table numstat-table)
     (setq-local ysc/magit-review--diff-spec-table diff-spec-table)
     (setq-local ysc/magit-review--binary-table binary-table)
-    (setq-local ysc/magit-review--worktree-tracking worktree-tracked-table)
     (setq-local ysc/magit-review--head-tracking head-tracked-table)
     (setq-local ysc/magit-review--status-table status-table)
     (setq-local ysc/magit-review--head-status-table head-status-table)
@@ -611,12 +606,18 @@ The plist contains :range, :args, and optional :error."
              (head-tracked (gethash file head-tracked-table))
              (status (ysc/magit-review--review-status tracked latest))
              (head-status (ysc/magit-review--review-status head-tracked latest))
-             (spec (ysc/magit-review--diff-spec status base tracked))
-             (numstat (ysc/magit-review--numstat-for-diff-spec file spec))
+             (spec (ysc/magit-review--diff-spec status base tracked base-valid head-valid))
              (total-numstat (or (gethash file total-numstat-table)
                                 ysc/magit-review--zero-numstat)))
         (puthash file spec diff-spec-table)
-        (puthash file numstat numstat-table)
+        (if (or (null spec) (plist-get spec :error))
+            (puthash file ysc/magit-review--zero-numstat numstat-table)
+          (let* ((args (plist-get spec :args))
+                 (key (ysc/magit-review--diff-args-key args))
+                 (entry (gethash key numstat-groups)))
+            (if entry
+                (setcdr entry (cons file (cdr entry)))
+              (puthash key (cons args (list file)) numstat-groups))))
         (puthash file (ysc/magit-review--binary-numstat-p total-numstat) binary-table)
         (puthash file status status-table)
         (puthash file head-status head-status-table)
@@ -629,6 +630,17 @@ The plist contains :range, :args, and optional :error."
            (push file changed-after-reviewed-files))
           ('reviewed
            (push file reviewed-files)))))
+    (maphash
+     (lambda (_key entry)
+       (let* ((args (car entry))
+              (files (nreverse (cdr entry)))
+              (batch-table (ysc/magit-review--numstat-table-for-args args files)))
+         (dolist (file files)
+           (puthash file
+                    (or (gethash file batch-table)
+                        ysc/magit-review--zero-numstat)
+                    numstat-table))))
+     numstat-groups)
     (pcase-let ((`(,file-width . ,count-width)
                  (ysc/magit-review--compute-stat-widths changed-files)))
       (setq-local ysc/magit-review--stat-file-width file-width)
@@ -724,10 +736,18 @@ FILE must be repository-relative."
   (let* ((ranges (ysc/magit-review--active-ranges))
          (commit-range (plist-get ranges :commit-range))
          (tracking (ysc/magit-review--read-tracking-table))
+         (missing-files nil)
+         (batched-commits (make-hash-table :test 'equal))
          commits)
     (dolist (file files)
+      (unless (gethash file ysc/magit-review--latest-commits)
+        (push file missing-files)))
+    (when missing-files
+      (setq batched-commits
+            (ysc/magit-review--latest-commit-table commit-range missing-files)))
+    (dolist (file files)
       (let ((commit (or (gethash file ysc/magit-review--latest-commits)
-                        (magit-git-string "rev-list" "-1" commit-range "--" file)
+                        (gethash file batched-commits)
                         (ysc/magit-review--latest-commit-for-file file)
                         (user-error "No commit found for file `%s`" file))))
         (puthash file commit tracking)
