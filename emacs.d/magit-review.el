@@ -336,6 +336,14 @@ This batches git queries instead of spawning one process per file."
                        file)
                      'magit-filename))
 
+(defun ysc/magit-review--empty-numstat-p (numstat)
+  "Return non-nil when NUMSTAT indicates an empty textual diff."
+  (and (numberp (plist-get numstat :add))
+       (numberp (plist-get numstat :del))
+       (= (plist-get numstat :add) 0)
+       (= (plist-get numstat :del) 0)
+       (= (or (plist-get numstat :total) 0) 0)))
+
 (defun ysc/magit-review--compute-stat-widths (files)
   "Return cons of (FILE-WIDTH . COUNT-WIDTH) for FILES."
   (let ((file-width 0)
@@ -537,11 +545,16 @@ The plist contains :range, :args, and optional :error."
                       ysc/magit-review--zero-numstat))
          (spec (gethash file ysc/magit-review--diff-spec-table))
          (binary (or (gethash file ysc/magit-review--binary-table)
-                     (ysc/magit-review--binary-numstat-p numstat))))
-    (magit-insert-section (file file (not binary))
+                     (ysc/magit-review--binary-numstat-p numstat)))
+         (empty-diff (and (not binary)
+                          spec
+                          (not (plist-get spec :error))
+                          (ysc/magit-review--empty-numstat-p numstat)))
+         (expandable (and (not binary) (not empty-diff))))
+    (magit-insert-section (file file expandable)
       (magit-insert-heading
         (ysc/magit-review--file-heading file changed-in-worktree numstat))
-      (unless binary
+      (when expandable
         (ysc/magit-review--insert-file-diff file spec)))))
 
 (defun ysc/magit-review--insert-subsection (heading files)
