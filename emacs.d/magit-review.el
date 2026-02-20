@@ -10,7 +10,8 @@
 (defvar magit-review-file-section-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map magit-file-section-map)
-    (define-key map (kbd "RET") #'ysc/magit-review-visit-file)
+    (define-key map (kbd "RET") #'magit-diff-visit-worktree-file)
+    (define-key map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
     (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
     (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
     (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
@@ -18,9 +19,6 @@
 
 (defclass magit-review-file-section (magit-file-section)
   ((keymap :initform 'magit-review-file-section-map)))
-
-(setf (alist-get 'review-file magit--section-type-alist)
-      'magit-review-file-section)
 
 (defgroup ysc-magit-review nil
   "Track review state of changed files in a local file."
@@ -333,6 +331,12 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
                "Bin"))
      (ysc/magit-review--diffstat-graph-string numstat))))
 
+(defun ysc/magit-review--binary-numstat-p (numstat)
+  "Return non-nil when NUMSTAT indicates a binary change."
+  (and (null (plist-get numstat :add))
+       (null (plist-get numstat :del))
+       (null (plist-get numstat :total))))
+
 (defun ysc/magit-review--wash-hunk ()
   "Wash one diff hunk into a `magit-hunk-section'."
   (when (looking-at "^@\\{2,\\} \\(.+?\\) @\\{2,\\}\\(?: \\(.*\\)\\)?")
@@ -379,9 +383,18 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
        (t
         (let ((raw (buffer-substring-no-properties beg end-marker)))
           (delete-region beg end-marker)
-          (insert (if (string-match-p "^Binary files " raw)
-                      "  (binary diff)\n"
-                    "  (no textual diff)\n"))))))
+          ;; Keep fallback text in a hunk section so hiding/showing file
+          ;; sections always toggles this content as expected.
+          (magit-insert-section
+              ( hunk '(fallback) nil
+                :from-range '(0 0)
+                :to-range '(0 0))
+            (magit-insert-heading
+              (propertize
+               (if (string-match-p "^Binary files " raw)
+                   "(binary diff)"
+                 "(no textual diff)")
+               'font-lock-face 'magit-diff-hunk-heading)))))))
     (set-marker end-marker nil)))
 
 (defun ysc/magit-review--insert-file-diff (file status base tracked)
@@ -414,11 +427,13 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
          (changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
          (numstat (or (gethash file ysc/magit-review--numstat-table)
                       (list :add 0 :del 0 :total 0)))
-         (tracked (gethash file ysc/magit-review--worktree-tracking)))
-    (magit-insert-section (review-file file t)
+         (tracked (gethash file ysc/magit-review--worktree-tracking))
+         (binary (ysc/magit-review--binary-numstat-p numstat)))
+    (magit-insert-section (file file (not binary))
       (magit-insert-heading
         (ysc/magit-review--file-heading file changed-in-worktree numstat))
-      (ysc/magit-review--insert-file-diff file status ysc/magit-review--base tracked))))
+      (unless binary
+        (ysc/magit-review--insert-file-diff file status ysc/magit-review--base tracked)))))
 
 (defun ysc/magit-review--insert-subsection (heading files)
   "Insert a foldable subsection with HEADING and FILES."
@@ -513,10 +528,11 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
 
 (defun ysc/magit-review--file-at-point ()
   "Return reviewed file at point, or nil."
-  (when-let ((section (magit-current-section)))
-    (while (and section (not (eq (oref section type) 'review-file)))
-      (setq section (oref section parent)))
-    (and section (oref section value))))
+  (or (magit-section-value-if [* file])
+      (when-let ((section (magit-current-section)))
+        (while (and section (not (magit-file-section-p section)))
+          (setq section (oref section parent)))
+        (and section (oref section value)))))
 
 (defun ysc/magit-review--status-at-point ()
   "Return review status for file at point."
@@ -584,7 +600,8 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
 (defvar ysc/magit-review-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map magit-mode-map)
-    (define-key map (kbd "RET") #'ysc/magit-review-visit-file)
+    (define-key map (kbd "RET") #'magit-diff-visit-worktree-file)
+    (define-key map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
     (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
     (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
     (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
@@ -593,6 +610,10 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
 (define-derived-mode ysc/magit-review-mode magit-mode "Magit Review"
   "Major mode for local file review tracking."
   (setq-local truncate-lines t)
+  (setq-local magit--section-type-alist
+              (let ((alist (copy-tree magit--section-type-alist)))
+                (setf (alist-get 'file alist) 'magit-review-file-section)
+                alist))
   ;; Keep review actions available even when point is inside expanded hunks.
   (setq-local magit-hunk-section-map
               (let ((map (copy-keymap magit-hunk-section-map)))
