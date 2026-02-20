@@ -287,6 +287,37 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
         (setq count-width (max count-width (string-width count-str)))))
     (cons file-width count-width)))
 
+(defun ysc/magit-review--line-change-totals (files numstat-table)
+  "Return cons cell (ADDED . REMOVED) for FILES using NUMSTAT-TABLE."
+  (let ((added 0)
+        (removed 0))
+    (dolist (file files)
+      (let* ((numstat (gethash file numstat-table))
+             (add (plist-get numstat :add))
+             (del (plist-get numstat :del)))
+        (when add
+          (setq added (+ added add)))
+        (when del
+          (setq removed (+ removed del)))))
+    (cons added removed)))
+
+(defun ysc/magit-review--line-change-summary (files numstat-table)
+  "Return Git-style line-change summary string for FILES."
+  (pcase-let ((`(,added . ,removed)
+               (ysc/magit-review--line-change-totals files numstat-table)))
+    (format "%d insertions(+), %d deletions(-)" added removed)))
+
+(defun ysc/magit-review--insert-summary-fields (fields)
+  "Insert aligned summary FIELDS.
+FIELDS is a list of cons cells (LABEL . VALUE)."
+  (let ((label-width (apply #'max (mapcar (lambda (field)
+                                            (string-width (car field)))
+                                          fields))))
+    (dolist (field fields)
+      (insert (format (format "%%-%ds %%s\n" label-width)
+                      (car field)
+                      (cdr field))))))
+
 (defun ysc/magit-review--file-heading (file changed-in-worktree numstat)
   "Return heading line text for FILE."
   (let* ((name (ysc/magit-review--file-heading-string file changed-in-worktree))
@@ -357,6 +388,7 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
   "Insert expandable diff for FILE according to STATUS."
   (let ((comparison-base (pcase status
                            ('not-reviewed base)
+                           ('reviewed base)
                            ('changed-after-reviewed tracked)
                            (_ nil))))
     (when comparison-base
@@ -417,6 +449,7 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
          (status-table (make-hash-table :test 'equal))
          (head-status-table (make-hash-table :test 'equal))
          (worktree-status-changes (make-hash-table :test 'equal))
+         (line-change-summary "")
          not-reviewed-files
          changed-after-reviewed-files
          reviewed-files)
@@ -451,29 +484,32 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
                  (ysc/magit-review--compute-stat-widths changed-files)))
       (setq-local ysc/magit-review--stat-file-width file-width)
       (setq-local ysc/magit-review--stat-count-width count-width))
+    (setq line-change-summary
+          (ysc/magit-review--line-change-summary changed-files numstat-table))
     (setq reviewed-files (nreverse reviewed-files))
     (setq changed-after-reviewed-files (nreverse changed-after-reviewed-files))
     (setq not-reviewed-files (nreverse not-reviewed-files))
     (magit-set-header-line-format
      (format "Review %s" range))
     (magit-insert-section (review-root)
-      (magit-insert-heading
-        (concat (magit--propertize-face "Files changed "
-                                        'magit-section-heading)
-                (magit--propertize-face (format "(%d)" (length changed-files))
-                                        'magit-section-child-count)))
-      (magit-insert-section-body
-        (insert (format "Base branch: %s\n" base))
-        (insert (format "Tracking file: %s\n\n"
-                        (file-relative-name tracking-file (magit-toplevel))))
-        (ysc/magit-review--insert-subsection
-         "Not reviewed" not-reviewed-files)
-        (ysc/magit-review--insert-subsection
-         "Changed after reviewed" changed-after-reviewed-files)
-        (ysc/magit-review--insert-subsection
-         "Reviewed" reviewed-files)
-        (insert "\n`*` means review status differs from HEAD in the worktree.\n")
-        (insert "Keys: `TAB` toggle section, `RET` visit file, `r` mark reviewed, `k` unmark reviewed, `u` undo worktree status change.\n")))))
+      (magit-insert-section (review-summary nil t)
+        (magit-insert-heading "Summary")
+        (magit-insert-section-body
+          (ysc/magit-review--insert-summary-fields
+           (list (cons "Base branch:" base)
+                 (cons "Tracking file:"
+                       (file-relative-name tracking-file (magit-toplevel)))
+                 (cons "Files changed:" (number-to-string (length changed-files)))
+                 (cons "Lines changed:" line-change-summary)))))
+      (insert "\n")
+      (ysc/magit-review--insert-subsection
+       "Not reviewed" not-reviewed-files)
+      (ysc/magit-review--insert-subsection
+       "Changed after reviewed" changed-after-reviewed-files)
+      (ysc/magit-review--insert-subsection
+       "Reviewed" reviewed-files)
+      (insert "\n`*` means review status differs from HEAD in the worktree.\n")
+      (insert "Keys: `TAB` toggle section, `RET` visit file, `r` mark reviewed, `k` unmark reviewed, `u` undo worktree status change.\n"))))
 
 (defun ysc/magit-review--file-at-point ()
   "Return reviewed file at point, or nil."
@@ -575,6 +611,7 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
     (ysc/magit-review--base (ysc/magit-review--resolve-base-branch))))
 
 (with-eval-after-load 'magit
+  (keymap-set magit-mode-map "R" #'ysc/magit-review)
   (ignore-errors
     (transient-remove-suffix 'magit-dispatch "R"))
   (transient-insert-suffix 'magit-dispatch "o"
