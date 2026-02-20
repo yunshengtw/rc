@@ -101,7 +101,13 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
 
 (defun ysc/magit-review--changed-files (range)
   "Return files changed in RANGE."
-  (magit-git-lines "diff" "--name-only" "--diff-filter=ACDMRTUXB" range))
+  (let* ((tracking-file (when-let ((path (ysc/magit-review--tracking-file-repo-path)))
+                          (ysc/magit-review--normalize-path path)))
+         (files (mapcar #'ysc/magit-review--normalize-path
+                        (magit-git-lines "diff" "--name-only" "--diff-filter=ACDMRTUXB" range))))
+    (if tracking-file
+        (cl-remove-if (lambda (file) (string-equal file tracking-file)) files)
+      files)))
 
 (defun ysc/magit-review--normalize-path (path)
   "Normalize PATH to repository-relative style."
@@ -141,7 +147,8 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
 (defun ysc/magit-review--read-tracking-table-from-revision (rev)
   "Read tracking entries from REV's version of tracking file."
   (if-let ((path (ysc/magit-review--tracking-file-repo-path))
-           (content (magit-git-string "show" (format "%s:%s" rev path))))
+           ;; Use full output; `magit-git-string' only returns the first line.
+           (content (magit-git-output "show" (format "%s:%s" rev path))))
       (ysc/magit-review--parse-tracking-content content)
     (make-hash-table :test 'equal)))
 
