@@ -217,6 +217,12 @@ This batches git queries instead of spawning one process per file."
                   (setq remaining (1- remaining))
                   (when (zerop remaining)
                     (throw 'done t))))))))))
+    ;; Some edge cases (for example deleted paths in certain histories) can be
+    ;; missed by the batched parser above; fill those entries explicitly.
+    (dolist (file files)
+      (unless (gethash file table)
+        (when-let ((commit (magit-git-string "rev-list" "-1" range "--" file)))
+          (puthash file (downcase commit) table))))
     table))
 
 (defun ysc/magit-review--numstat-from-strings (add-str del-str)
@@ -694,7 +700,10 @@ FILE must be repository-relative."
   (interactive)
   (let* ((file (or (ysc/magit-review--file-at-point)
                    (user-error "No file at point")))
+         (ranges (ysc/magit-review--active-ranges))
+         (commit-range (plist-get ranges :commit-range))
          (commit (or (gethash file ysc/magit-review--latest-commits)
+                     (magit-git-string "rev-list" "-1" commit-range "--" file)
                      (ysc/magit-review--latest-commit-for-file file)
                      (user-error "No commit found for file `%s`" file)))
          (tracking (ysc/magit-review--read-tracking-table)))
