@@ -439,6 +439,9 @@
                               company-backends))
 			(company-mode)))
 
+;; Branch review tracking (local review file + Magit buffer)
+(load "~/.emacs.d/magit-review.el")
+
 
 ;;; Markdown (with support for previewing in GitHub style)
 ;; (adapted from https://blog.bitsandbobs.net/blog/emacs-markdown-live-preview/)
