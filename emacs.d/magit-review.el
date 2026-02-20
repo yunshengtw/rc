@@ -7,15 +7,19 @@
 (require 'magit-section)
 (require 'subr-x)
 
+(defun ysc/magit-review--bind-review-action-keys (map)
+  "Bind review action keys in MAP and return MAP."
+  (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
+  (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
+  (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
+  map)
+
 (defvar magit-review-file-section-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map magit-file-section-map)
     (define-key map (kbd "RET") #'magit-diff-visit-worktree-file)
     (define-key map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
-    (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
-    (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
-    (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
-    map))
+    (ysc/magit-review--bind-review-action-keys map)))
 
 (defclass magit-review-file-section (magit-file-section)
   ((keymap :initform 'magit-review-file-section-map)))
@@ -52,8 +56,6 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
   'ysc/magit-review-default-base-branches
   "ysc/magit-review")
 
-(defvar-local ysc/magit-review--range nil)
-(defvar-local ysc/magit-review--commit-range nil)
 (defvar-local ysc/magit-review--base nil)
 (defvar-local ysc/magit-review--latest-commits nil)
 (defvar-local ysc/magit-review--worktree-tracking nil)
@@ -64,6 +66,10 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
 (defvar-local ysc/magit-review--numstat-table nil)
 (defvar-local ysc/magit-review--stat-file-width nil)
 (defvar-local ysc/magit-review--stat-count-width nil)
+
+(defconst ysc/magit-review--zero-numstat
+  '(:add 0 :del 0 :total 0)
+  "Fallback numstat plist for files with no textual changes.")
 
 (defun ysc/magit-review--tracking-file-path ()
   "Return absolute path of the tracking file."
@@ -92,14 +98,6 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
    (t
     (user-error "No base branch found (tried: %s)"
                 (string-join ysc/magit-review-default-base-branches ", ")))))
-
-(defun ysc/magit-review--diff-range (base)
-  "Return diff range from BASE to HEAD."
-  (format "%s...HEAD" base))
-
-(defun ysc/magit-review--commit-range (base)
-  "Return commit range from BASE to HEAD."
-  (format "%s..HEAD" base))
 
 (defun ysc/magit-review--changed-files (range)
   "Return files changed in RANGE."
@@ -162,38 +160,70 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
       (dolist (entry (ysc/magit-review--table-entries table))
         (insert (car entry) "\t" (cdr entry) "\n")))))
 
-(defun ysc/magit-review--latest-commit-for-file (range file)
-  "Return latest commit in RANGE that modified FILE."
-  (magit-git-string "log" "-n" "1" "--format=%H" range "--" file))
-
 (defun ysc/magit-review--latest-commit-table (range files)
-  "Return a hash table mapping FILES to their latest commit in RANGE."
+  "Return a hash table mapping FILES to their latest commit in RANGE.
+This batches git queries instead of spawning one process per file."
   (let ((table (make-hash-table :test 'equal)))
-    (dolist (file files)
-      (when-let ((commit (ysc/magit-review--latest-commit-for-file range file)))
-        (puthash file (downcase commit) table)))
+    (when files
+      (let ((file-set (make-hash-table :test 'equal))
+            (remaining (length files))
+            current-commit)
+        (dolist (file files)
+          (puthash file t file-set))
+        (catch 'done
+          (dolist (line (magit-git-lines "log" "--format=commit:%H" "--name-only" range "--"))
+            (cond
+             ((string-empty-p line))
+             ((string-prefix-p "commit:" line)
+              (setq current-commit (downcase (substring line (length "commit:")))))
+             (current-commit
+              (let ((file (ysc/magit-review--normalize-path line)))
+                (when (and (gethash file file-set)
+                           (null (gethash file table)))
+                  (puthash file current-commit table)
+                  (setq remaining (1- remaining))
+                  (when (zerop remaining)
+                    (throw 'done t))))))))))
     table))
+
+(defun ysc/magit-review--numstat-from-strings (add-str del-str)
+  "Build a numstat plist from ADD-STR and DEL-STR."
+  (let ((add (unless (string-equal add-str "-")
+               (string-to-number add-str)))
+        (del (unless (string-equal del-str "-")
+               (string-to-number del-str))))
+    (list :add add
+          :del del
+          :total (and add del (+ add del)))))
 
 (defun ysc/magit-review--file-numstat (range file)
   "Return plist with numstat for FILE in RANGE."
   (if-let* ((line (car (magit-git-lines "diff" "--numstat" range "--" file)))
             (_ (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t" line)))
-      (let* ((add-str (match-string 1 line))
-             (del-str (match-string 2 line))
-             (add (unless (string-equal add-str "-")
-                    (string-to-number add-str)))
-             (del (unless (string-equal del-str "-")
-                    (string-to-number del-str))))
-        (list :add add
-              :del del
-              :total (and add del (+ add del))))
-    (list :add 0 :del 0 :total 0)))
+      (ysc/magit-review--numstat-from-strings
+       (match-string 1 line)
+       (match-string 2 line))
+    ysc/magit-review--zero-numstat))
 
 (defun ysc/magit-review--numstat-table (range files)
   "Return hash table mapping FILES to numstat plists in RANGE."
   (let ((table (make-hash-table :test 'equal)))
+    (when files
+      (let ((file-set (make-hash-table :test 'equal)))
+        (dolist (file files)
+          (puthash file t file-set))
+        (dolist (line (magit-git-lines "diff" "--numstat" range))
+          (when (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t\\(.+\\)\\'" line)
+            (let ((file (ysc/magit-review--normalize-path (match-string 3 line))))
+              (when (gethash file file-set)
+                (puthash file
+                         (ysc/magit-review--numstat-from-strings
+                          (match-string 1 line)
+                          (match-string 2 line))
+                         table)))))))
     (dolist (file files)
-      (puthash file (ysc/magit-review--file-numstat range file) table))
+      (unless (gethash file table)
+        (puthash file (ysc/magit-review--file-numstat range file) table)))
     table))
 
 (defun ysc/magit-review--commit-equal-p (a b)
@@ -227,13 +257,13 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
     ('reviewed "Reviewed")
     (_ "Unknown")))
 
-(defun ysc/magit-review--insert-diffstat-graph (numstat)
-  "Insert a magit-revision-style diffstat graph from NUMSTAT."
+(defun ysc/magit-review--diffstat-graph (numstat)
+  "Return a magit-revision-style diffstat graph string from NUMSTAT."
   (let* ((add (plist-get numstat :add))
          (del (plist-get numstat :del))
          (width 8))
     (if (or (null add) (null del))
-        (insert (propertize (make-string width ?.) 'font-lock-face 'shadow))
+        (propertize (make-string width ?.) 'font-lock-face 'shadow)
       (let* ((total (max 1 (+ add del)))
              (add-len (if (> add 0)
                           (max 1 (round (* width (/ (float add) total))))
@@ -246,21 +276,18 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
               (setq add-len (1- add-len))
             (setq del-len (1- del-len))))
         (let ((dot-len (- width add-len del-len)))
-          (when (> add-len 0)
-            (insert (propertize (make-string add-len ?+)
-                                'font-lock-face 'magit-diffstat-added)))
-          (when (> del-len 0)
-            (insert (propertize (make-string del-len ?-)
-                                'font-lock-face 'magit-diffstat-removed)))
-          (when (> dot-len 0)
-            (insert (propertize (make-string dot-len ?.)
-                                'font-lock-face 'shadow))))))))
-
-(defun ysc/magit-review--diffstat-graph-string (numstat)
-  "Return diffstat graph string for NUMSTAT."
-  (with-temp-buffer
-    (ysc/magit-review--insert-diffstat-graph numstat)
-    (buffer-string)))
+          (concat (if (> add-len 0)
+                      (propertize (make-string add-len ?+)
+                                  'font-lock-face 'magit-diffstat-added)
+                    "")
+                  (if (> del-len 0)
+                      (propertize (make-string del-len ?-)
+                                  'font-lock-face 'magit-diffstat-removed)
+                    "")
+                  (if (> dot-len 0)
+                      (propertize (make-string dot-len ?.)
+                                  'font-lock-face 'shadow)
+                    "")))))))
 
 (defun ysc/magit-review--file-heading-string (file changed-in-worktree)
   "Return file heading string for FILE."
@@ -278,7 +305,7 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
       (let* ((changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
              (name (ysc/magit-review--file-heading-string file changed-in-worktree))
              (numstat (or (gethash file ysc/magit-review--numstat-table)
-                          (list :add 0 :del 0 :total 0)))
+                          ysc/magit-review--zero-numstat))
              (count (plist-get numstat :total))
              (count-str (if count (number-to-string count) "Bin")))
         (setq file-width (max file-width (string-width name)))
@@ -298,12 +325,6 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
         (when del
           (setq removed (+ removed del)))))
     (cons added removed)))
-
-(defun ysc/magit-review--line-change-summary (files numstat-table)
-  "Return Git-style line-change summary string for FILES."
-  (pcase-let ((`(,added . ,removed)
-               (ysc/magit-review--line-change-totals files numstat-table)))
-    (format "%d insertions(+), %d deletions(-)" added removed)))
 
 (defun ysc/magit-review--insert-summary-fields (fields)
   "Insert aligned summary FIELDS.
@@ -329,7 +350,7 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
              (if total
                  (number-to-string total)
                "Bin"))
-     (ysc/magit-review--diffstat-graph-string numstat))))
+     (ysc/magit-review--diffstat-graph numstat))))
 
 (defun ysc/magit-review--binary-numstat-p (numstat)
   "Return non-nil when NUMSTAT indicates a binary change."
@@ -426,7 +447,7 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
   (let* ((status (gethash file ysc/magit-review--status-table))
          (changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
          (numstat (or (gethash file ysc/magit-review--numstat-table)
-                      (list :add 0 :del 0 :total 0)))
+                      ysc/magit-review--zero-numstat))
          (tracked (gethash file ysc/magit-review--worktree-tracking))
          (binary (ysc/magit-review--binary-numstat-p numstat)))
     (magit-insert-section (file file (not binary))
@@ -453,8 +474,8 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
   "Refresh `ysc/magit-review-mode' buffer."
   (let* ((base (or ysc/magit-review--base
                    (ysc/magit-review--resolve-base-branch)))
-         (range (ysc/magit-review--diff-range base))
-         (commit-range (ysc/magit-review--commit-range base))
+         (range (format "%s...HEAD" base))
+         (commit-range (format "%s..HEAD" base))
          (tracking-file (ysc/magit-review--tracking-file-path))
          (worktree-tracked-table (ysc/magit-review--read-tracking-table))
          (head-tracked-table (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
@@ -468,8 +489,6 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
          not-reviewed-files
          changed-after-reviewed-files
          reviewed-files)
-    (setq-local ysc/magit-review--range range)
-    (setq-local ysc/magit-review--commit-range commit-range)
     (setq-local ysc/magit-review--base base)
     (setq-local ysc/magit-review--latest-commits latest-commits)
     (setq-local ysc/magit-review--numstat-table numstat-table)
@@ -499,8 +518,10 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
                  (ysc/magit-review--compute-stat-widths changed-files)))
       (setq-local ysc/magit-review--stat-file-width file-width)
       (setq-local ysc/magit-review--stat-count-width count-width))
-    (setq line-change-summary
-          (ysc/magit-review--line-change-summary changed-files numstat-table))
+    (pcase-let ((`(,added . ,removed)
+                 (ysc/magit-review--line-change-totals changed-files numstat-table)))
+      (setq line-change-summary
+            (format "%d insertions(+), %d deletions(-)" added removed)))
     (setq reviewed-files (nreverse reviewed-files))
     (setq changed-after-reviewed-files (nreverse changed-after-reviewed-files))
     (setq not-reviewed-files (nreverse not-reviewed-files))
@@ -534,20 +555,6 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
           (setq section (oref section parent)))
         (and section (oref section value)))))
 
-(defun ysc/magit-review--status-at-point ()
-  "Return review status for file at point."
-  (when-let ((file (ysc/magit-review--file-at-point)))
-    (gethash file ysc/magit-review--status-table)))
-
-(defun ysc/magit-review-visit-file ()
-  "Visit file at point."
-  (interactive)
-  (when-let* ((file (ysc/magit-review--file-at-point))
-              (path (expand-file-name file (magit-toplevel))))
-    (if (file-exists-p path)
-        (find-file path)
-      (message "File `%s` does not exist in worktree" file))))
-
 (defun ysc/magit-review-mark-file-reviewed ()
   "Mark the file at point as reviewed at its latest commit."
   (interactive)
@@ -566,7 +573,7 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
   (interactive)
   (let* ((file (or (ysc/magit-review--file-at-point)
                    (user-error "No file at point")))
-         (status (ysc/magit-review--status-at-point)))
+         (status (gethash file ysc/magit-review--status-table)))
     (unless (memq status '(reviewed changed-after-reviewed))
       (user-error "File `%s` is already Not reviewed" file))
     (let ((tracking (ysc/magit-review--read-tracking-table)))
@@ -585,7 +592,8 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
     (if (eq status head-status)
         (message "No worktree review-status change for %s" file)
       (let* ((tracking (ysc/magit-review--read-tracking-table))
-             (head-tracking (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
+             (head-tracking (or ysc/magit-review--head-tracking
+                                (ysc/magit-review--read-tracking-table-from-revision "HEAD")))
              (missing (make-symbol "missing"))
              (head-entry (gethash file head-tracking missing)))
         (if (eq head-entry missing)
@@ -602,10 +610,7 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
     (set-keymap-parent map magit-mode-map)
     (define-key map (kbd "RET") #'magit-diff-visit-worktree-file)
     (define-key map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
-    (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
-    (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
-    (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
-    map))
+    (ysc/magit-review--bind-review-action-keys map)))
 
 (define-derived-mode ysc/magit-review-mode magit-mode "Magit Review"
   "Major mode for local file review tracking."
@@ -616,11 +621,8 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
                 alist))
   ;; Keep review actions available even when point is inside expanded hunks.
   (setq-local magit-hunk-section-map
-              (let ((map (copy-keymap magit-hunk-section-map)))
-                (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
-                (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
-                (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
-                map)))
+              (ysc/magit-review--bind-review-action-keys
+               (copy-keymap magit-hunk-section-map))))
 
 (defun ysc/magit-review ()
   "Open the review buffer for the current repository."
