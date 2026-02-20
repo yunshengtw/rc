@@ -7,6 +7,21 @@
 (require 'magit-section)
 (require 'subr-x)
 
+(defvar magit-review-file-section-map
+  (let ((map (make-sparse-keymap)))
+    (set-keymap-parent map magit-file-section-map)
+    (define-key map (kbd "RET") #'ysc/magit-review-visit-file)
+    (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
+    (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
+    (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
+    map))
+
+(defclass magit-review-file-section (magit-file-section)
+  ((keymap :initform 'magit-review-file-section-map)))
+
+(setf (alist-get 'review-file magit--section-type-alist)
+      'magit-review-file-section)
+
 (defgroup ysc-magit-review nil
   "Track review state of changed files in a local file."
   :group 'magit)
@@ -30,8 +45,17 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
   :group 'ysc-magit-review)
 
 (defvar-local ysc/magit-review--range nil)
+(defvar-local ysc/magit-review--commit-range nil)
 (defvar-local ysc/magit-review--target nil)
 (defvar-local ysc/magit-review--latest-commits nil)
+(defvar-local ysc/magit-review--worktree-tracking nil)
+(defvar-local ysc/magit-review--head-tracking nil)
+(defvar-local ysc/magit-review--status-table nil)
+(defvar-local ysc/magit-review--head-status-table nil)
+(defvar-local ysc/magit-review--worktree-status-changes nil)
+(defvar-local ysc/magit-review--numstat-table nil)
+(defvar-local ysc/magit-review--stat-file-width nil)
+(defvar-local ysc/magit-review--stat-count-width nil)
 
 (defun ysc/magit-review--tracking-file-path ()
   "Return absolute path of the tracking file."
@@ -40,6 +64,13 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
     (if (file-name-absolute-p ysc/magit-review-tracking-file)
         ysc/magit-review-tracking-file
       (expand-file-name ysc/magit-review-tracking-file root))))
+
+(defun ysc/magit-review--tracking-file-repo-path ()
+  "Return tracking file path relative to repository root, or nil."
+  (let* ((root (magit-toplevel))
+         (file (ysc/magit-review--tracking-file-path)))
+    (when (and root (file-in-directory-p file root))
+      (file-relative-name file root))))
 
 (defun ysc/magit-review--resolve-target-branch ()
   "Return the target branch used for comparison."
@@ -57,6 +88,10 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
 (defun ysc/magit-review--diff-range (target)
   "Return diff range from TARGET to HEAD."
   (format "%s...HEAD" target))
+
+(defun ysc/magit-review--commit-range (target)
+  "Return commit range from TARGET to HEAD."
+  (format "%s..HEAD" target))
 
 (defun ysc/magit-review--changed-files (range)
   "Return files changed in RANGE."
@@ -80,17 +115,29 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
             (downcase (match-string 1 line))))
      (t nil))))
 
+(defun ysc/magit-review--parse-tracking-content (content)
+  "Parse CONTENT and return a tracking hash table."
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (line (split-string content "\n" t))
+      (when-let ((entry (ysc/magit-review--parse-tracking-line line)))
+        (puthash (car entry) (cdr entry) table)))
+    table))
+
 (defun ysc/magit-review--read-tracking-table ()
   "Read tracking entries from `ysc/magit-review-tracking-file'."
-  (let ((table (make-hash-table :test 'equal))
-        (tracking-file (ysc/magit-review--tracking-file-path)))
-    (when (file-readable-p tracking-file)
-      (with-temp-buffer
-        (insert-file-contents tracking-file)
-        (dolist (line (split-string (buffer-string) "\n" t))
-          (when-let ((entry (ysc/magit-review--parse-tracking-line line)))
-            (puthash (car entry) (cdr entry) table)))))
-    table))
+  (let ((tracking-file (ysc/magit-review--tracking-file-path)))
+    (if (file-readable-p tracking-file)
+        (with-temp-buffer
+          (insert-file-contents tracking-file)
+          (ysc/magit-review--parse-tracking-content (buffer-string)))
+      (make-hash-table :test 'equal))))
+
+(defun ysc/magit-review--read-tracking-table-from-revision (rev)
+  "Read tracking entries from REV's version of tracking file."
+  (if-let ((path (ysc/magit-review--tracking-file-repo-path))
+           (content (magit-git-string "show" (format "%s:%s" rev path))))
+      (ysc/magit-review--parse-tracking-content content)
+    (make-hash-table :test 'equal)))
 
 (defun ysc/magit-review--table-entries (table)
   "Return TABLE as sorted alist."
@@ -119,6 +166,28 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
         (puthash file (downcase commit) table)))
     table))
 
+(defun ysc/magit-review--file-numstat (range file)
+  "Return plist with numstat for FILE in RANGE."
+  (if-let* ((line (car (magit-git-lines "diff" "--numstat" range "--" file)))
+            (_ (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t" line)))
+      (let* ((add-str (match-string 1 line))
+             (del-str (match-string 2 line))
+             (add (unless (string-equal add-str "-")
+                    (string-to-number add-str)))
+             (del (unless (string-equal del-str "-")
+                    (string-to-number del-str))))
+        (list :add add
+              :del del
+              :total (and add del (+ add del))))
+    (list :add 0 :del 0 :total 0)))
+
+(defun ysc/magit-review--numstat-table (range files)
+  "Return hash table mapping FILES to numstat plists in RANGE."
+  (let ((table (make-hash-table :test 'equal)))
+    (dolist (file files)
+      (puthash file (ysc/magit-review--file-numstat range file) table))
+    table))
+
 (defun ysc/magit-review--commit-equal-p (a b)
   "Return non-nil when commit A and B refer to the same revision."
   (and a
@@ -135,26 +204,177 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
       (substring oid 0 12)
     oid))
 
-(defun ysc/magit-review--insert-file (file latest tracked)
-  "Insert FILE section with LATEST and TRACKED commit ids."
-  (magit-insert-section (review-file file)
-    (let ((start (point)))
-      (insert (propertize file 'font-lock-face 'magit-filename))
-      (put-text-property start (point) 'ysc/magit-review-file file))
-    (when latest
-      (insert " "
-              (propertize (format "[%s]" (ysc/magit-review--short-oid latest))
-                          'font-lock-face 'magit-hash)))
-    (when (and tracked (not (ysc/magit-review--commit-equal-p tracked latest)))
-      (insert " "
-              (propertize (format "(tracked %s)"
-                                  (ysc/magit-review--short-oid tracked))
-                          'font-lock-face 'shadow)))
+(defun ysc/magit-review--review-status (tracked latest)
+  "Return review status symbol for TRACKED and LATEST commits."
+  (cond
+   ((null tracked) 'not-reviewed)
+   ((ysc/magit-review--commit-equal-p tracked latest) 'reviewed)
+   (t 'changed-after-reviewed)))
+
+(defun ysc/magit-review--status-label (status)
+  "Return human-readable label for STATUS."
+  (pcase status
+    ('not-reviewed "Not reviewed")
+    ('changed-after-reviewed "Changed after reviewed")
+    ('reviewed "Reviewed")
+    (_ "Unknown")))
+
+(defun ysc/magit-review--insert-diffstat-graph (numstat)
+  "Insert a magit-revision-style diffstat graph from NUMSTAT."
+  (let* ((add (plist-get numstat :add))
+         (del (plist-get numstat :del))
+         (width 8))
+    (if (or (null add) (null del))
+        (insert (propertize (make-string width ?.) 'font-lock-face 'shadow))
+      (let* ((total (max 1 (+ add del)))
+             (add-len (if (> add 0)
+                          (max 1 (round (* width (/ (float add) total))))
+                        0))
+             (del-len (if (> del 0)
+                          (max 1 (round (* width (/ (float del) total))))
+                        0)))
+        (while (> (+ add-len del-len) width)
+          (if (> add-len del-len)
+              (setq add-len (1- add-len))
+            (setq del-len (1- del-len))))
+        (let ((dot-len (- width add-len del-len)))
+          (when (> add-len 0)
+            (insert (propertize (make-string add-len ?+)
+                                'font-lock-face 'magit-diffstat-added)))
+          (when (> del-len 0)
+            (insert (propertize (make-string del-len ?-)
+                                'font-lock-face 'magit-diffstat-removed)))
+          (when (> dot-len 0)
+            (insert (propertize (make-string dot-len ?.)
+                                'font-lock-face 'shadow))))))))
+
+(defun ysc/magit-review--file-heading-string (file changed-in-worktree)
+  "Return file heading string for FILE."
+  (magit-format-file 'stat
+                     (if changed-in-worktree
+                         (concat file "*")
+                       file)
+                     'magit-filename))
+
+(defun ysc/magit-review--compute-stat-widths (files)
+  "Return cons of (FILE-WIDTH . COUNT-WIDTH) for FILES."
+  (let ((file-width 0)
+        (count-width 0))
+    (dolist (file files)
+      (let* ((changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
+             (name (ysc/magit-review--file-heading-string file changed-in-worktree))
+             (numstat (or (gethash file ysc/magit-review--numstat-table)
+                          (list :add 0 :del 0 :total 0)))
+             (count (plist-get numstat :total))
+             (count-str (if count (number-to-string count) "Bin")))
+        (setq file-width (max file-width (string-width name)))
+        (setq count-width (max count-width (string-width count-str)))))
+    (cons file-width count-width)))
+
+(defun ysc/magit-review--insert-file-heading (file changed-in-worktree numstat)
+  "Insert heading line for FILE."
+  (let* ((name (ysc/magit-review--file-heading-string file changed-in-worktree))
+         (file-width (or ysc/magit-review--stat-file-width (string-width name)))
+         (total (plist-get numstat :total)))
+    (insert name)
+    (insert (make-string (max 1 (1+ (- file-width (string-width name)))) ?\s))
+    (insert "| ")
+    (insert
+     (format (format "%%%ds " (or ysc/magit-review--stat-count-width 3))
+             (if total
+                 (number-to-string total)
+               "Bin")))
+    (ysc/magit-review--insert-diffstat-graph numstat)
     (insert "\n")))
 
-(defun ysc/magit-review--insert-subsection (heading files latest-table tracked-table)
+(defun ysc/magit-review--wash-hunk ()
+  "Wash one diff hunk into a `magit-hunk-section'."
+  (when (looking-at "^@\\{2,\\} \\(.+?\\) @\\{2,\\}\\(?: \\(.*\\)\\)?")
+    (let* ((heading (match-string 0))
+           (ranges (mapcar
+                    (lambda (str)
+                      (let ((range
+                             (mapcar #'string-to-number
+                                     (split-string (substring str 1) ","))))
+                        (if (= (length range) 1)
+                            (nconc range (list 1))
+                          range)))
+                    (split-string (match-string 1))))
+           (about (match-string 2))
+           (combined (= (length ranges) 3))
+           (value (cons about ranges)))
+      (magit-delete-line)
+      (magit-insert-section
+          ( hunk value nil
+            :combined combined
+            :from-range (if combined (butlast ranges) (car ranges))
+            :to-range (car (last ranges))
+            :about about)
+        (magit-insert-heading
+          (propertize (concat heading "\n")
+                      'font-lock-face 'magit-diff-hunk-heading))
+        (while (not (or (eobp) (looking-at "^[^-+ \\\\]")))
+          (forward-line))))
+    t))
+
+(defun ysc/magit-review--wash-diff-into-hunks (beg end)
+  "Turn raw diff in region BEG..END into hunk sections."
+  (let ((end-marker (copy-marker end)))
+    (save-excursion
+      (goto-char beg)
+      (cond
+       ((re-search-forward "^@\\{2,\\} " end-marker t)
+        (goto-char (line-beginning-position))
+        (delete-region beg (point))
+        (goto-char beg)
+        (magit-wash-sequence #'ysc/magit-review--wash-hunk)
+        (when (< (point) end-marker)
+          (delete-region (point) end-marker)))
+       (t
+        (let ((raw (buffer-substring-no-properties beg end-marker)))
+          (delete-region beg end-marker)
+          (insert (if (string-match-p "^Binary files " raw)
+                      "  (binary diff)\n"
+                    "  (no textual diff)\n"))))))
+    (set-marker end-marker nil)))
+
+(defun ysc/magit-review--insert-file-diff (file status target tracked)
+  "Insert expandable diff for FILE according to STATUS."
+  (let ((base (pcase status
+                ('not-reviewed target)
+                ('changed-after-reviewed tracked)
+                (_ nil))))
+    (when base
+      (magit-insert-section-body
+        (insert (propertize (format "Diff against %s\n" base)
+                            'font-lock-face 'shadow))
+        (if (not (magit-rev-verify base))
+            (insert (format "Cannot resolve base revision `%s`.\n\n" base))
+          (let ((beg (point)))
+            (magit-git-insert "diff" "-p" "--no-prefix" "--no-color" "--no-ext-diff"
+                              (format "%s..HEAD" base)
+                              "--" file)
+            (when (= beg (point))
+              (insert "  (no changes)\n"))
+            (ysc/magit-review--wash-diff-into-hunks beg (point))
+            (unless (bolp)
+              (insert "\n"))
+            (insert "\n")))))))
+
+(defun ysc/magit-review--insert-file (file)
+  "Insert FILE section."
+  (let* ((status (gethash file ysc/magit-review--status-table))
+         (changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
+         (numstat (or (gethash file ysc/magit-review--numstat-table)
+                      (list :add 0 :del 0 :total 0)))
+         (tracked (gethash file ysc/magit-review--worktree-tracking)))
+    (magit-insert-section (review-file file t)
+      (ysc/magit-review--insert-file-heading file changed-in-worktree numstat)
+      (ysc/magit-review--insert-file-diff file status ysc/magit-review--target tracked))))
+
+(defun ysc/magit-review--insert-subsection (heading files)
   "Insert a foldable subsection with HEADING and FILES."
-  (magit-insert-section (review-subsection heading)
+  (magit-insert-section (review-subsection heading t)
     (magit-insert-heading
       (concat (magit--propertize-face (concat heading " ")
                                       'magit-section-heading)
@@ -163,10 +383,7 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
     (magit-insert-section-body
       (if files
           (dolist (file files)
-            (ysc/magit-review--insert-file
-             file
-             (gethash file latest-table)
-             (gethash file tracked-table)))
+            (ysc/magit-review--insert-file file))
         (insert "  (none)\n")))))
 
 (defun ysc/magit-review-refresh-buffer ()
@@ -174,25 +391,55 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
   (let* ((target (or ysc/magit-review--target
                      (ysc/magit-review--resolve-target-branch)))
          (range (ysc/magit-review--diff-range target))
+         (commit-range (ysc/magit-review--commit-range target))
          (tracking-file (ysc/magit-review--tracking-file-path))
-         (tracked-table (ysc/magit-review--read-tracking-table))
+         (worktree-tracked-table (ysc/magit-review--read-tracking-table))
+         (head-tracked-table (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
          (changed-files (ysc/magit-review--changed-files range))
-         (latest-commits (ysc/magit-review--latest-commit-table range changed-files))
-         reviewed-files
-         not-reviewed-files)
+         (latest-commits (ysc/magit-review--latest-commit-table commit-range changed-files))
+         (numstat-table (ysc/magit-review--numstat-table range changed-files))
+         (status-table (make-hash-table :test 'equal))
+         (head-status-table (make-hash-table :test 'equal))
+         (worktree-status-changes (make-hash-table :test 'equal))
+         not-reviewed-files
+         changed-after-reviewed-files
+         reviewed-files)
     (setq-local ysc/magit-review--range range)
+    (setq-local ysc/magit-review--commit-range commit-range)
     (setq-local ysc/magit-review--target target)
     (setq-local ysc/magit-review--latest-commits latest-commits)
+    (setq-local ysc/magit-review--numstat-table numstat-table)
+    (setq-local ysc/magit-review--worktree-tracking worktree-tracked-table)
+    (setq-local ysc/magit-review--head-tracking head-tracked-table)
+    (setq-local ysc/magit-review--status-table status-table)
+    (setq-local ysc/magit-review--head-status-table head-status-table)
+    (setq-local ysc/magit-review--worktree-status-changes worktree-status-changes)
     (dolist (file changed-files)
-      (let ((latest (gethash file latest-commits))
-            (tracked (gethash file tracked-table)))
-        (if (ysc/magit-review--commit-equal-p tracked latest)
-            (push file reviewed-files)
-          (push file not-reviewed-files))))
+      (let* ((latest (gethash file latest-commits))
+             (tracked (gethash file worktree-tracked-table))
+             (head-tracked (gethash file head-tracked-table))
+             (status (ysc/magit-review--review-status tracked latest))
+             (head-status (ysc/magit-review--review-status head-tracked latest)))
+        (puthash file status status-table)
+        (puthash file head-status head-status-table)
+        (when (not (eq status head-status))
+          (puthash file t worktree-status-changes))
+        (pcase status
+          ('not-reviewed
+           (push file not-reviewed-files))
+          ('changed-after-reviewed
+           (push file changed-after-reviewed-files))
+          ('reviewed
+           (push file reviewed-files)))))
+    (pcase-let ((`(,file-width . ,count-width)
+                 (ysc/magit-review--compute-stat-widths changed-files)))
+      (setq-local ysc/magit-review--stat-file-width file-width)
+      (setq-local ysc/magit-review--stat-count-width count-width))
     (setq reviewed-files (nreverse reviewed-files))
+    (setq changed-after-reviewed-files (nreverse changed-after-reviewed-files))
     (setq not-reviewed-files (nreverse not-reviewed-files))
     (magit-set-header-line-format
-      (format "Review %s" range))
+     (format "Review %s" range))
     (magit-insert-section (review-root)
       (magit-insert-heading
         (concat (magit--propertize-face "Files changed "
@@ -204,21 +451,34 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
         (insert (format "Tracking file: %s\n\n"
                         (file-relative-name tracking-file (magit-toplevel))))
         (ysc/magit-review--insert-subsection
-         "Not yet reviewed" not-reviewed-files latest-commits tracked-table)
+         "Not reviewed" not-reviewed-files)
         (ysc/magit-review--insert-subsection
-         "Reviewed" reviewed-files latest-commits tracked-table)
-        (insert "\nKeys: `RET` visit file, `r` mark file reviewed at latest commit.\n")))))
+         "Changed after reviewed" changed-after-reviewed-files)
+        (ysc/magit-review--insert-subsection
+         "Reviewed" reviewed-files)
+        (insert "\n`*` means review status differs from HEAD in the worktree.\n")
+        (insert "Keys: `TAB` toggle section, `RET` visit file, `r` mark reviewed, `k` unmark reviewed, `u` undo worktree status change.\n")))))
 
 (defun ysc/magit-review--file-at-point ()
   "Return reviewed file at point, or nil."
-  (or (get-text-property (point) 'ysc/magit-review-file)
-      (get-text-property (line-beginning-position) 'ysc/magit-review-file)))
+  (when-let ((section (magit-current-section)))
+    (while (and section (not (eq (oref section type) 'review-file)))
+      (setq section (oref section parent)))
+    (and section (oref section value))))
+
+(defun ysc/magit-review--status-at-point ()
+  "Return review status for file at point."
+  (when-let ((file (ysc/magit-review--file-at-point)))
+    (gethash file ysc/magit-review--status-table)))
 
 (defun ysc/magit-review-visit-file ()
   "Visit file at point."
   (interactive)
-  (when-let ((file (ysc/magit-review--file-at-point)))
-    (find-file (expand-file-name file (magit-toplevel)))))
+  (when-let* ((file (ysc/magit-review--file-at-point))
+              (path (expand-file-name file (magit-toplevel))))
+    (if (file-exists-p path)
+        (find-file path)
+      (message "File `%s` does not exist in worktree" file))))
 
 (defun ysc/magit-review-mark-file-reviewed ()
   "Mark the file at point as reviewed at its latest commit."
@@ -233,16 +493,61 @@ When nil, fallback to `ysc/magit-review-default-target-branches'."
     (magit-refresh-buffer)
     (message "Marked %s reviewed at %s" file (ysc/magit-review--short-oid commit))))
 
+(defun ysc/magit-review-unmark-file-reviewed ()
+  "Convert file at point to `Not reviewed'."
+  (interactive)
+  (let* ((file (or (ysc/magit-review--file-at-point)
+                   (user-error "No file at point")))
+         (status (ysc/magit-review--status-at-point)))
+    (unless (memq status '(reviewed changed-after-reviewed))
+      (user-error "File `%s` is already Not reviewed" file))
+    (let ((tracking (ysc/magit-review--read-tracking-table)))
+      (remhash file tracking)
+      (ysc/magit-review--write-tracking-table tracking)
+      (magit-refresh-buffer)
+      (message "Converted %s to Not reviewed" file))))
+
+(defun ysc/magit-review-undo-file-review ()
+  "Undo worktree review status changes for file at point by restoring HEAD status."
+  (interactive)
+  (let* ((file (or (ysc/magit-review--file-at-point)
+                   (user-error "No file at point")))
+         (status (gethash file ysc/magit-review--status-table))
+         (head-status (gethash file ysc/magit-review--head-status-table)))
+    (if (eq status head-status)
+        (message "No worktree review-status change for %s" file)
+      (let* ((tracking (ysc/magit-review--read-tracking-table))
+             (head-tracking (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
+             (missing (make-symbol "missing"))
+             (head-entry (gethash file head-tracking missing)))
+        (if (eq head-entry missing)
+            (remhash file tracking)
+          (puthash file head-entry tracking))
+        (ysc/magit-review--write-tracking-table tracking)
+        (magit-refresh-buffer)
+        (message "Restored %s to HEAD review status (%s)"
+                 file
+                 (ysc/magit-review--status-label head-status))))))
+
 (defvar ysc/magit-review-mode-map
   (let ((map (make-sparse-keymap)))
     (set-keymap-parent map magit-mode-map)
     (define-key map (kbd "RET") #'ysc/magit-review-visit-file)
     (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
+    (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
+    (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
     map))
 
 (define-derived-mode ysc/magit-review-mode magit-mode "Magit Review"
   "Major mode for local file review tracking."
-  (setq-local truncate-lines t))
+  (setq-local truncate-lines t)
+  ;; Keep review actions available even when point is inside expanded hunks.
+  (setq-local magit-hunk-section-map
+              (let ((map (copy-keymap magit-hunk-section-map)))
+                (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
+                (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
+                (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
+                map)))
 
 (defun ysc/magit-review ()
   "Open the review buffer for the current repository."
