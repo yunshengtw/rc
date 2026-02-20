@@ -9,9 +9,10 @@
 
 (defun ysc/magit-review--bind-review-action-keys (map)
   "Bind review action keys in MAP and return MAP."
-  (define-key map (kbd "r") #'ysc/magit-review-mark-file-reviewed)
+  (define-key map (kbd "s") #'ysc/magit-review-mark-file-reviewed)
   (define-key map (kbd "k") #'ysc/magit-review-unmark-file-reviewed)
   (define-key map (kbd "u") #'ysc/magit-review-undo-file-review)
+  (define-key map (kbd "m") #'ysc/magit-review-toggle-diff-mode)
   map)
 
 (defvar magit-review-file-section-map
@@ -46,6 +47,20 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
   :type '(repeat string)
   :group 'ysc-magit-review)
 
+(defcustom ysc/magit-review-diff-mode 'incremental
+  "Diff mode used by `ysc/magit-review'.
+
+`incremental' uses category-specific ranges:
+- Not reviewed: BASE...HEAD
+- Changed after reviewed: TRACKED..HEAD
+- Reviewed: HEAD..WORKTREE
+
+`full' keeps Not reviewed at BASE...HEAD, and shows BASE...HEAD
+for Changed after reviewed and Reviewed categories."
+  :type '(choice (const :tag "Incremental" incremental)
+                 (const :tag "Full" full))
+  :group 'ysc-magit-review)
+
 (define-obsolete-variable-alias
   'ysc/magit-review-target-branch
   'ysc/magit-review-base-branch
@@ -64,6 +79,8 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
 (defvar-local ysc/magit-review--head-status-table nil)
 (defvar-local ysc/magit-review--worktree-status-changes nil)
 (defvar-local ysc/magit-review--numstat-table nil)
+(defvar-local ysc/magit-review--diff-spec-table nil)
+(defvar-local ysc/magit-review--binary-table nil)
 (defvar-local ysc/magit-review--stat-file-width nil)
 (defvar-local ysc/magit-review--stat-count-width nil)
 
@@ -98,6 +115,15 @@ When nil, fallback to `ysc/magit-review-default-base-branches'."
    (t
     (user-error "No base branch found (tried: %s)"
                 (string-join ysc/magit-review-default-base-branches ", ")))))
+
+(defun ysc/magit-review--active-ranges ()
+  "Return plist describing active review ranges for current diff mode."
+  (let ((base (or ysc/magit-review--base
+                  (ysc/magit-review--resolve-base-branch))))
+    (list :base base
+          :changed-range (format "%s...HEAD" base)
+          :commit-range (format "%s..HEAD" base)
+          :header-range (format "%s...HEAD" base))))
 
 (defun ysc/magit-review--changed-files (range)
   "Return files changed in RANGE."
@@ -408,20 +434,20 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
         (magit-wash-sequence #'ysc/magit-review--wash-hunk)
         (when (< (point) end-marker)
           (delete-region (point) end-marker)))
-	       (t
-	       (let ((raw (buffer-substring-no-properties beg end-marker)))
-	         (delete-region beg end-marker)
-	          ;; Keep unparsed diff text in a hunk section so hiding/showing file
-	          ;; sections always toggles this content as expected.
-	          (let ((lines (split-string raw "\n" t)))
-	            (when lines
-	              (magit-insert-section
-	                  ( hunk '(fallback) nil
-	                    :from-range '(0 0)
-	                    :to-range '(0 0))
-	                (magit-insert-heading (concat (car lines) "\n"))
-	                (dolist (line (cdr lines))
-	                  (insert line "\n")))))))))
+       (t
+        (let ((raw (buffer-substring-no-properties beg end-marker)))
+          (delete-region beg end-marker)
+          ;; Keep unparsed diff text in a hunk section so hiding/showing file
+          ;; sections always toggles this content as expected.
+          (let ((lines (split-string raw "\n" t)))
+            (when lines
+              (magit-insert-section
+                  ( hunk '(fallback) nil
+                    :from-range '(0 0)
+                    :to-range '(0 0))
+                (magit-insert-heading (concat (car lines) "\n"))
+                (dolist (line (cdr lines))
+                  (insert line "\n")))))))))
     (set-marker end-marker nil)))
 
 (defun ysc/magit-review--diff-spec (status base tracked)
@@ -429,29 +455,59 @@ FIELDS is a list of cons cells (LABEL . VALUE)."
 The plist contains :range, :args, and optional :error."
   (pcase status
     ('not-reviewed
-     (let ((range (format "%s..HEAD" base)))
+     (let ((range (format "%s...HEAD" base)))
        (if (magit-rev-verify base)
            (list :range range :args (list range))
          (list :range range
                :error (format "Cannot resolve revision `%s`." base)))))
     ('changed-after-reviewed
-     (if (and tracked (magit-rev-verify tracked))
-         (list :range (format "%s..HEAD" tracked)
-               :args (list (format "%s..HEAD" tracked)))
-       (list :range (if tracked
-                        (format "%s..HEAD" tracked)
-                      "<missing-review-commit>..HEAD")
-             :error "Cannot resolve the tracked review commit.")))
+     (pcase ysc/magit-review-diff-mode
+       ('full
+        (let ((range (format "%s...HEAD" base)))
+          (if (magit-rev-verify base)
+              (list :range range :args (list range))
+            (list :range range
+                  :error (format "Cannot resolve revision `%s`." base)))))
+       (_
+        (if (and tracked (magit-rev-verify tracked))
+            (list :range (format "%s..HEAD" tracked)
+                  :args (list (format "%s..HEAD" tracked)))
+          (list :range (if tracked
+                           (format "%s..HEAD" tracked)
+                         "<missing-review-commit>..HEAD")
+                :error "Cannot resolve the tracked review commit.")))))
     ('reviewed
-     (if (magit-rev-verify "HEAD")
-         (list :range "HEAD..WORKTREE" :args (list "HEAD"))
-       (list :range "HEAD..WORKTREE"
-             :error "Cannot resolve revision `HEAD`.")))
+     (pcase ysc/magit-review-diff-mode
+       ('full
+        (let ((range (format "%s...HEAD" base)))
+          (if (magit-rev-verify base)
+              (list :range range :args (list range))
+            (list :range range
+                  :error (format "Cannot resolve revision `%s`." base)))))
+       (_
+        (if (magit-rev-verify "HEAD")
+            (list :range "HEAD..WORKTREE" :args (list "HEAD"))
+          (list :range "HEAD..WORKTREE"
+                :error "Cannot resolve revision `HEAD`.")))))
     (_ nil)))
 
-(defun ysc/magit-review--insert-file-diff (file status base tracked)
-  "Insert expandable diff for FILE according to STATUS."
-  (when-let ((spec (ysc/magit-review--diff-spec status base tracked)))
+(defun ysc/magit-review--numstat-for-diff-spec (file spec)
+  "Return FILE numstat plist according to SPEC."
+  (if (or (null spec) (plist-get spec :error))
+      ysc/magit-review--zero-numstat
+    (if-let* ((line (car (apply #'magit-git-lines
+                                (append (list "diff" "--numstat")
+                                        (plist-get spec :args)
+                                        (list "--" file)))))
+              (_ (string-match "\\`\\([0-9-]+\\)\t\\([0-9-]+\\)\t" line)))
+        (ysc/magit-review--numstat-from-strings
+         (match-string 1 line)
+         (match-string 2 line))
+      ysc/magit-review--zero-numstat)))
+
+(defun ysc/magit-review--insert-file-diff (file spec)
+  "Insert expandable diff for FILE using SPEC."
+  (when spec
     (magit-insert-section-body
       (insert (propertize (format "Diff range: %s\n" (plist-get spec :range))
                           'font-lock-face 'shadow))
@@ -470,17 +526,17 @@ The plist contains :range, :args, and optional :error."
 
 (defun ysc/magit-review--insert-file (file)
   "Insert FILE section."
-  (let* ((status (gethash file ysc/magit-review--status-table))
-         (changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
+  (let* ((changed-in-worktree (gethash file ysc/magit-review--worktree-status-changes))
          (numstat (or (gethash file ysc/magit-review--numstat-table)
                       ysc/magit-review--zero-numstat))
-         (tracked (gethash file ysc/magit-review--worktree-tracking))
-         (binary (ysc/magit-review--binary-numstat-p numstat)))
+         (spec (gethash file ysc/magit-review--diff-spec-table))
+         (binary (or (gethash file ysc/magit-review--binary-table)
+                     (ysc/magit-review--binary-numstat-p numstat))))
     (magit-insert-section (file file (not binary))
       (magit-insert-heading
         (ysc/magit-review--file-heading file changed-in-worktree numstat))
       (unless binary
-        (ysc/magit-review--insert-file-diff file status ysc/magit-review--base tracked)))))
+        (ysc/magit-review--insert-file-diff file spec)))))
 
 (defun ysc/magit-review--insert-subsection (heading files)
   "Insert a foldable subsection with HEADING and FILES."
@@ -498,16 +554,21 @@ The plist contains :range, :args, and optional :error."
 
 (defun ysc/magit-review-refresh-buffer ()
   "Refresh `ysc/magit-review-mode' buffer."
-  (let* ((base (or ysc/magit-review--base
-                   (ysc/magit-review--resolve-base-branch)))
-         (range (format "%s...HEAD" base))
-         (commit-range (format "%s..HEAD" base))
+  (let* ((ranges (ysc/magit-review--active-ranges))
+         (base (plist-get ranges :base))
+         (range (plist-get ranges :changed-range))
+         (commit-range (plist-get ranges :commit-range))
+         (header-range (plist-get ranges :header-range))
+         (total-range (format "%s...HEAD" base))
          (tracking-file (ysc/magit-review--tracking-file-path))
          (worktree-tracked-table (ysc/magit-review--read-tracking-table))
          (head-tracked-table (ysc/magit-review--read-tracking-table-from-revision "HEAD"))
          (changed-files (ysc/magit-review--changed-files range))
          (latest-commits (ysc/magit-review--latest-commit-table commit-range changed-files))
-         (numstat-table (ysc/magit-review--numstat-table range changed-files))
+         (total-numstat-table (ysc/magit-review--numstat-table total-range changed-files))
+         (numstat-table (make-hash-table :test 'equal))
+         (diff-spec-table (make-hash-table :test 'equal))
+         (binary-table (make-hash-table :test 'equal))
          (status-table (make-hash-table :test 'equal))
          (head-status-table (make-hash-table :test 'equal))
          (worktree-status-changes (make-hash-table :test 'equal))
@@ -518,6 +579,8 @@ The plist contains :range, :args, and optional :error."
     (setq-local ysc/magit-review--base base)
     (setq-local ysc/magit-review--latest-commits latest-commits)
     (setq-local ysc/magit-review--numstat-table numstat-table)
+    (setq-local ysc/magit-review--diff-spec-table diff-spec-table)
+    (setq-local ysc/magit-review--binary-table binary-table)
     (setq-local ysc/magit-review--worktree-tracking worktree-tracked-table)
     (setq-local ysc/magit-review--head-tracking head-tracked-table)
     (setq-local ysc/magit-review--status-table status-table)
@@ -528,7 +591,14 @@ The plist contains :range, :args, and optional :error."
              (tracked (gethash file worktree-tracked-table))
              (head-tracked (gethash file head-tracked-table))
              (status (ysc/magit-review--review-status tracked latest))
-             (head-status (ysc/magit-review--review-status head-tracked latest)))
+             (head-status (ysc/magit-review--review-status head-tracked latest))
+             (spec (ysc/magit-review--diff-spec status base tracked))
+             (numstat (ysc/magit-review--numstat-for-diff-spec file spec))
+             (total-numstat (or (gethash file total-numstat-table)
+                                ysc/magit-review--zero-numstat)))
+        (puthash file spec diff-spec-table)
+        (puthash file numstat numstat-table)
+        (puthash file (ysc/magit-review--binary-numstat-p total-numstat) binary-table)
         (puthash file status status-table)
         (puthash file head-status head-status-table)
         (when (not (eq status head-status))
@@ -545,24 +615,25 @@ The plist contains :range, :args, and optional :error."
       (setq-local ysc/magit-review--stat-file-width file-width)
       (setq-local ysc/magit-review--stat-count-width count-width))
     (pcase-let ((`(,added . ,removed)
-                 (ysc/magit-review--line-change-totals changed-files numstat-table)))
+                 (ysc/magit-review--line-change-totals changed-files total-numstat-table)))
       (setq line-change-summary
             (format "%d insertions(+), %d deletions(-)" added removed)))
     (setq reviewed-files (nreverse reviewed-files))
     (setq changed-after-reviewed-files (nreverse changed-after-reviewed-files))
     (setq not-reviewed-files (nreverse not-reviewed-files))
     (magit-set-header-line-format
-     (format "Review %s" range))
+     (format "Review %s" header-range))
     (magit-insert-section (review-root)
       (magit-insert-section (review-summary nil t)
         (magit-insert-heading "Summary")
         (magit-insert-section-body
           (ysc/magit-review--insert-summary-fields
-           (list (cons "Base branch:" base)
+           (list (cons "Base branch:" (or base "N/A"))
                  (cons "Tracking file:"
                        (file-relative-name tracking-file (magit-toplevel)))
                  (cons "Files changed:" (number-to-string (length changed-files)))
-                 (cons "Lines changed:" line-change-summary)))))
+                 (cons "Lines changed:" line-change-summary)
+                 (cons "Reviewed diff:" (symbol-name ysc/magit-review-diff-mode))))))
       (insert "\n")
       (ysc/magit-review--insert-subsection
        "Not reviewed" not-reviewed-files)
@@ -571,7 +642,13 @@ The plist contains :range, :args, and optional :error."
       (ysc/magit-review--insert-subsection
        "Reviewed" reviewed-files)
       (insert "\n`*` means review status differs from HEAD in the worktree.\n")
-      (insert "Keys: `TAB` toggle section, `RET` visit file, `r` mark reviewed, `k` unmark reviewed, `u` undo worktree status change.\n"))))
+      (insert "Keys:\n")
+      (insert "- `TAB` toggle section\n")
+      (insert "- `RET` visit file\n")
+      (insert "- `s` mark reviewed\n")
+      (insert "- `k` unmark reviewed\n")
+      (insert "- `u` undo worktree status change\n")
+      (insert "- `m` toggle reviewed diff\n"))))
 
 (defun ysc/magit-review--file-at-point ()
   "Return reviewed file at point, or nil."
@@ -607,6 +684,17 @@ The plist contains :range, :args, and optional :error."
       (ysc/magit-review--write-tracking-table tracking)
       (magit-refresh-buffer)
       (message "Converted %s to Not reviewed" file))))
+
+(defun ysc/magit-review-toggle-diff-mode ()
+  "Toggle diff mode between `incremental' and `full' in current review buffer."
+  (interactive)
+  (setq-local ysc/magit-review-diff-mode
+              (if (eq ysc/magit-review-diff-mode 'incremental)
+                  'full
+                'incremental))
+  (setq-local ysc/magit-review--base (ysc/magit-review--resolve-base-branch))
+  (magit-refresh-buffer)
+  (message "Reviewed diff: %s" (symbol-name ysc/magit-review-diff-mode)))
 
 (defun ysc/magit-review-undo-file-review ()
   "Undo worktree review status changes for file at point by restoring HEAD status."
