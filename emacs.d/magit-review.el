@@ -655,7 +655,7 @@ The plist contains :range, :args, and optional :error."
     (magit-set-header-line-format
      (format "Review %s" header-range))
     (magit-insert-section (review-root)
-      (magit-insert-section (review-summary nil t)
+      (magit-insert-section (review-summary nil nil)
         (magit-insert-heading "Summary")
         (magit-insert-section-body
           (ysc/magit-review--insert-summary-fields
