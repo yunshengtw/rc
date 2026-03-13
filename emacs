@@ -404,6 +404,28 @@
 ;;; Reference: https://docs.magit.vc/forge/Setup-for-Githubcom.html
 (require 'forge)
 
+(defvar ysc/forge-last-pullreq-buffer nil
+  "Most recently visited live Forge pull request buffer.")
+
+(defun ysc/forge-track-pullreq-buffer ()
+  "Remember the current buffer when it is a Forge pull request buffer."
+  (when (derived-mode-p 'forge-pullreq-mode)
+    (setq ysc/forge-last-pullreq-buffer (current-buffer))))
+
+(defun ysc/forge-jump-to-last-pullreq-buffer ()
+  "Jump to the last visited Forge pull request buffer."
+  (interactive)
+  (cond
+   ((not (buffer-live-p ysc/forge-last-pullreq-buffer))
+    (user-error "No remembered Forge pull request buffer"))
+   ((eq (current-buffer) ysc/forge-last-pullreq-buffer)
+    (message "Already in the remembered Forge pull request buffer"))
+   (t
+    (switch-to-buffer ysc/forge-last-pullreq-buffer))))
+
+(add-hook 'buffer-list-update-hook #'ysc/forge-track-pullreq-buffer)
+(global-set-key (kbd "s-h") 'ysc/forge-jump-to-last-pullreq-buffer)
+
 (defun ysc/forge-refresh-and-fetch-topic ()
   "Refresh the buffer and fetch topics from the forge."
   (interactive)
