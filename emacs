@@ -212,7 +212,7 @@
 	(if (fboundp 'eglot--update-hints)
 		(eglot--update-hints (point-min) (point-max))
 	  (message "eglot--update-hints not available"))))
-(global-set-key (kbd "s-H") 'toggle-eglot-inlay-hints-mode)
+(global-set-key (kbd "s-h") 'toggle-eglot-inlay-hints-mode)
 ;; Disable advertising of eglot actions
 (setq eglot-code-action-indications nil)
 
@@ -424,7 +424,7 @@
     (switch-to-buffer ysc/forge-last-pullreq-buffer))))
 
 (add-hook 'buffer-list-update-hook #'ysc/forge-track-pullreq-buffer)
-(global-set-key (kbd "s-h") 'ysc/forge-jump-to-last-pullreq-buffer)
+(global-set-key (kbd "s-H") 'ysc/forge-jump-to-last-pullreq-buffer)
 
 (defun ysc/forge-refresh-and-fetch-topic ()
   "Refresh the buffer and fetch topics from the forge."
