@@ -212,7 +212,7 @@
 	(if (fboundp 'eglot--update-hints)
 		(eglot--update-hints (point-min) (point-max))
 	  (message "eglot--update-hints not available"))))
-(global-set-key (kbd "s-h") 'toggle-eglot-inlay-hints-mode)
+(global-set-key (kbd "s-H") 'toggle-eglot-inlay-hints-mode)
 ;; Disable advertising of eglot actions
 (setq eglot-code-action-indications nil)
 
@@ -272,7 +272,7 @@
   (with-output-to-temp-buffer "*cheat*"
     (switch-to-buffer-other-window "*cheat*")
     (insert-file-contents "~/.emacs.d/cheat-key.org")))
-(global-set-key (kbd "s-H") 'cheat-sheet)
+;; (global-set-key (kbd "s-H") 'cheat-sheet)
 
 ;;; Go
 (require 'go-mode)
