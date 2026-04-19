@@ -212,7 +212,6 @@
 	(if (fboundp 'eglot--update-hints)
 		(eglot--update-hints (point-min) (point-max))
 	  (message "eglot--update-hints not available"))))
-(global-set-key (kbd "s-h") 'toggle-eglot-inlay-hints-mode)
 ;; Disable advertising of eglot actions
 (setq eglot-code-action-indications nil)
 
@@ -299,6 +298,7 @@
 			(prettify-symbols-mode)
 			;; Enable company mode
 			(company-mode)
+			(local-set-key (kbd "s-h") 'toggle-eglot-inlay-hints-mode)
 			;; Enable language server protocol
 			(eglot-ensure)))
 ;; Disable showing immediate diagnostics for Rust to avoid redundant information generated with
@@ -473,6 +473,10 @@
   :commands (markdown-mode gfm-mode)
   :config
   (setq markdown-command "pandoc -t html5 --mathml"))
+
+(add-hook 'markdown-mode-hook
+          (lambda ()
+            (local-set-key (kbd "s-h") 'markdown-toggle-markup-hiding)))
 
 (use-package simple-httpd
   :ensure t
