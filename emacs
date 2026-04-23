@@ -61,6 +61,10 @@
 (setq ns-pop-up-frames nil)
 ;; Show column number
 (column-number-mode)
+;; Keep file-visiting buffers in sync with file changes on disk.
+(add-hook 'find-file-hook
+	  (lambda ()
+	    (auto-revert-mode 1)))
 ;; Interactive matching
 ;; (require 'ido)
 ;; (ido-mode)
@@ -154,6 +158,9 @@
 
 ;;; Dired
 (add-hook 'dired-mode-hook 'dired-omit-mode)
+(add-hook 'dired-mode-hook
+	  (lambda ()
+	    (auto-revert-mode 1)))
 (global-set-key (kbd "s-D") 'dired-sidebar-toggle-sidebar)
 
 ;;; Misc
@@ -541,7 +548,7 @@
 (add-hook 'pdf-view-mode-hook
 	  (lambda ()
 	    ;; Auto-update the pdf contents 
-	    (auto-revert-mode)
+	    (auto-revert-mode 1)
 	    (setq auto-revert-interval 0.5)
 	    (auto-revert-set-timer)))
 (defun dedicate-current-window ()
