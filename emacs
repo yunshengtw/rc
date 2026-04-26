@@ -52,9 +52,10 @@
  '(font-lock-comment-face ((t (:slant normal))))
  '(font-lock-comment-delimiter-face ((t (:slant normal))))
  '(mode-line ((t (:background "#373b41" :foreground "#c5c8c6"
-		   :box (:line-width 1 :color "#5f6368" :style nil)))))
+		   :box (:line-width 1 :color "#aaaaaa" :style nil)))))
  '(mode-line-inactive ((t (:background "#1d1f21" :foreground "#969896"
-			    :box (:line-width 1 :color "#373b41" :style nil))))))
+			    :box (:line-width 1 :color "#666666" :style nil)))))
+ '(mode-line-highlight ((t (:box (:line-width 1 :color "#aaaaaa" :style nil))))))
 
 ;;; Misc
 ;; Maximize frame on start-up
