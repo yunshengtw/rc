@@ -84,9 +84,9 @@
    `(markdown-code-face ((,class (:foreground ,green))))
 
    ;; Flymake
-   `(flymake-error ((,class (:underline nil))))
-   `(flymake-warning ((,class (:underline nil))))
-   `(flymake-note ((,class (:underline nil))))
+   `(flymake-error ((,class (:background "#704242" :underline nil))))
+   `(flymake-warning ((,class (:background "#6b5830" :underline nil))))
+   `(flymake-note ((,class (:background "#3a6573" :underline nil))))
    `(flymake-error-echo-at-eol ((,class (:foreground ,red :slant italic :height 130))))
    `(flymake-warning-echo-at-eol ((,class (:foreground ,orange :slant italic :height 130))))
    `(flymake-note-echo-at-eol ((,class (:foreground ,blue :slant italic :height 130))))

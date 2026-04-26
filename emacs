@@ -176,8 +176,8 @@
 (use-package flymake
   :ensure t
   :custom
-  ;; Show diagnostics in new lines (requires Emacs version >= 30)
-  (flymake-show-diagnostics-at-end-of-line 'fancy))
+  ;; Keep diagnostics off the end of source lines.
+  (flymake-show-diagnostics-at-end-of-line nil))
 (add-hook 'flymake-mode-hook
 		  (lambda ()
 			(global-set-key (kbd "s-e") 'flymake-goto-next-error)))
