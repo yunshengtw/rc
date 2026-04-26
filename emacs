@@ -50,7 +50,11 @@
  '(bold-italic ((t (:family "Source Code Pro" :weight medium :slant italic))))
  ;; Disable slant comments
  '(font-lock-comment-face ((t (:slant normal))))
- '(font-lock-comment-delimiter-face ((t (:slant normal)))))
+ '(font-lock-comment-delimiter-face ((t (:slant normal))))
+ '(mode-line ((t (:background "#373b41" :foreground "#c5c8c6"
+		   :box (:line-width 1 :color "#5f6368" :style nil)))))
+ '(mode-line-inactive ((t (:background "#1d1f21" :foreground "#969896"
+			    :box (:line-width 1 :color "#373b41" :style nil))))))
 
 ;;; Misc
 ;; Maximize frame on start-up
