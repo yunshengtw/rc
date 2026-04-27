@@ -473,6 +473,20 @@
                               company-backends))
 			(company-mode)))
 
+;; Hide markdown markups in Forge topic/PR buffers
+(with-eval-after-load 'forge-topic
+  ;; Make Forge topic/PR buffers respect invisible markdown markup.
+  (add-hook 'forge-topic-mode-hook
+            (lambda ()
+              (add-to-invisibility-spec 'markdown-markup)))
+  ;; Render Forge Markdown bodies with markdown-hide-markup enabled.
+  (advice-add
+   'forge--fontify-markdown
+   :around
+   (lambda (orig text &optional indent)
+     (let ((markdown-hide-markup t))
+       (funcall orig text indent)))))
+
 ;; Branch review tracking (local review file + Magit buffer)
 (load "~/.emacs.d/magit-review.el")
 
