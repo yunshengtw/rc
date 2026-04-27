@@ -411,6 +411,15 @@
 (define-key magit-file-section-map (kbd "C-<return>") #'magit-diff-visit-file)
 (define-key magit-file-section-map (kbd "S-<return>") #'magit-diff-visit-worktree-file-other-window)
 
+(defun ysc/magit-show-commit-same-window ()
+  "Show the commit at point in the selected window."
+  (interactive)
+  (let ((display-buffer-overriding-action '(display-buffer-same-window)))
+    (call-interactively #'magit-show-commit)))
+
+(define-key magit-commit-section-map (kbd "RET") #'ysc/magit-show-commit-same-window)
+(define-key magit-commit-section-map (kbd "S-<return>") #'magit-show-commit)
+
 ;;; GitHub (Forge)
 ;;;
 ;;; Reference: https://docs.magit.vc/forge/Setup-for-Githubcom.html
