@@ -380,6 +380,12 @@ This batches git queries instead of spawning one process per file."
           (setq removed (+ removed del)))))
     (cons added removed)))
 
+(defun ysc/magit-review--line-change-summary (files numstat-table)
+  "Return a line-change summary for FILES using NUMSTAT-TABLE."
+  (pcase-let ((`(,added . ,removed)
+               (ysc/magit-review--line-change-totals files numstat-table)))
+    (format "%d insertions(+), %d deletions(-)" added removed)))
+
 (defun ysc/magit-review--insert-summary-fields (fields)
   "Insert aligned summary FIELDS.
 FIELDS is a list of cons cells (LABEL . VALUE)."
@@ -508,9 +514,52 @@ The plist contains :range, :args, and optional :error."
                 :error "Cannot resolve revision `HEAD`.")))))
     (_ nil)))
 
+(defun ysc/magit-review--excluding-reviewed-diff-spec
+    (status base tracked base-valid)
+  "Return diff spec for STATUS in the excluding-reviewed summary.
+Not reviewed files count BASE...HEAD.  Changed-after-reviewed files
+always count TRACKED..HEAD, independent of `ysc/magit-review-diff-mode'."
+  (pcase status
+    ('not-reviewed
+     (ysc/magit-review--base-diff-spec base base-valid))
+    ('changed-after-reviewed
+     (if (and tracked (magit-rev-verify tracked))
+         (list :range (format "%s..HEAD" tracked)
+               :args (list (format "%s..HEAD" tracked)))
+       (list :range (if tracked
+                        (format "%s..HEAD" tracked)
+                      "<missing-review-commit>..HEAD")
+             :error "Cannot resolve the tracked review commit.")))
+    (_ nil)))
+
 (defun ysc/magit-review--diff-args-key (args)
   "Return a stable hash key for diff ARGS."
   (string-join args "\0"))
+
+(defun ysc/magit-review--queue-numstat-for-spec (file spec groups table)
+  "Queue FILE's SPEC in GROUPS, or record zero in TABLE when unavailable."
+  (if (or (null spec) (plist-get spec :error))
+      (puthash file ysc/magit-review--zero-numstat table)
+    (let* ((args (plist-get spec :args))
+           (key (ysc/magit-review--diff-args-key args))
+           (entry (gethash key groups)))
+      (if entry
+          (setcdr entry (cons file (cdr entry)))
+        (puthash key (cons args (list file)) groups)))))
+
+(defun ysc/magit-review--fill-numstat-table-from-groups (groups table)
+  "Fill TABLE by running batched numstat queries from GROUPS."
+  (maphash
+   (lambda (_key entry)
+     (let* ((args (car entry))
+            (files (nreverse (cdr entry)))
+            (batch-table (ysc/magit-review--numstat-table-for-args args files)))
+       (dolist (file files)
+         (puthash file
+                  (or (gethash file batch-table)
+                      ysc/magit-review--zero-numstat)
+                  table))))
+   groups))
 
 (defun ysc/magit-review--insert-file-diff (file spec)
   "Insert expandable diff for FILE using SPEC."
@@ -582,12 +631,15 @@ The plist contains :range, :args, and optional :error."
          (total-numstat-table (ysc/magit-review--numstat-table total-range changed-files))
          (numstat-table (make-hash-table :test 'equal))
          (numstat-groups (make-hash-table :test 'equal))
+         (excluding-reviewed-numstat-table (make-hash-table :test 'equal))
+         (excluding-reviewed-numstat-groups (make-hash-table :test 'equal))
          (diff-spec-table (make-hash-table :test 'equal))
          (binary-table (make-hash-table :test 'equal))
          (status-table (make-hash-table :test 'equal))
          (head-status-table (make-hash-table :test 'equal))
          (worktree-status-changes (make-hash-table :test 'equal))
          (line-change-summary "")
+         (line-change-excluding-reviewed-summary "")
          not-reviewed-files
          changed-after-reviewed-files
          reviewed-files)
@@ -607,17 +659,20 @@ The plist contains :range, :args, and optional :error."
              (status (ysc/magit-review--review-status tracked latest))
              (head-status (ysc/magit-review--review-status head-tracked latest))
              (spec (ysc/magit-review--diff-spec status base tracked base-valid head-valid))
+             (excluding-reviewed-spec
+              (ysc/magit-review--excluding-reviewed-diff-spec
+               status base tracked base-valid))
              (total-numstat (or (gethash file total-numstat-table)
                                 ysc/magit-review--zero-numstat)))
         (puthash file spec diff-spec-table)
-        (if (or (null spec) (plist-get spec :error))
-            (puthash file ysc/magit-review--zero-numstat numstat-table)
-          (let* ((args (plist-get spec :args))
-                 (key (ysc/magit-review--diff-args-key args))
-                 (entry (gethash key numstat-groups)))
-            (if entry
-                (setcdr entry (cons file (cdr entry)))
-              (puthash key (cons args (list file)) numstat-groups))))
+        (ysc/magit-review--queue-numstat-for-spec
+         file spec numstat-groups numstat-table)
+        (when excluding-reviewed-spec
+          (ysc/magit-review--queue-numstat-for-spec
+           file
+           excluding-reviewed-spec
+           excluding-reviewed-numstat-groups
+           excluding-reviewed-numstat-table))
         (puthash file (ysc/magit-review--binary-numstat-p total-numstat) binary-table)
         (puthash file status status-table)
         (puthash file head-status head-status-table)
@@ -630,25 +685,20 @@ The plist contains :range, :args, and optional :error."
            (push file changed-after-reviewed-files))
           ('reviewed
            (push file reviewed-files)))))
-    (maphash
-     (lambda (_key entry)
-       (let* ((args (car entry))
-              (files (nreverse (cdr entry)))
-              (batch-table (ysc/magit-review--numstat-table-for-args args files)))
-         (dolist (file files)
-           (puthash file
-                    (or (gethash file batch-table)
-                        ysc/magit-review--zero-numstat)
-                    numstat-table))))
-     numstat-groups)
+    (ysc/magit-review--fill-numstat-table-from-groups
+     numstat-groups numstat-table)
+    (ysc/magit-review--fill-numstat-table-from-groups
+     excluding-reviewed-numstat-groups excluding-reviewed-numstat-table)
     (pcase-let ((`(,file-width . ,count-width)
                  (ysc/magit-review--compute-stat-widths changed-files)))
       (setq-local ysc/magit-review--stat-file-width file-width)
       (setq-local ysc/magit-review--stat-count-width count-width))
-    (pcase-let ((`(,added . ,removed)
-                 (ysc/magit-review--line-change-totals changed-files total-numstat-table)))
-      (setq line-change-summary
-            (format "%d insertions(+), %d deletions(-)" added removed)))
+    (setq line-change-summary
+          (ysc/magit-review--line-change-summary changed-files total-numstat-table))
+    (setq line-change-excluding-reviewed-summary
+          (ysc/magit-review--line-change-summary
+           (append not-reviewed-files changed-after-reviewed-files)
+           excluding-reviewed-numstat-table))
     (setq reviewed-files (nreverse reviewed-files))
     (setq changed-after-reviewed-files (nreverse changed-after-reviewed-files))
     (setq not-reviewed-files (nreverse not-reviewed-files))
@@ -662,9 +712,13 @@ The plist contains :range, :args, and optional :error."
            (list (cons "Base branch:" (or base "N/A"))
                  (cons "Tracking file:"
                        (file-relative-name tracking-file (magit-toplevel)))
-                 (cons "Files changed:" (number-to-string (length changed-files)))
-                 (cons "Lines changed:" line-change-summary)
-                 (cons "Reviewed diff:" (symbol-name ysc/magit-review-diff-mode))))))
+                 (cons "Files changed:" (number-to-string (length changed-files)))))
+          (insert "Lines changed:\n")
+          (ysc/magit-review--insert-summary-fields
+           (list (cons "  Total:" line-change-summary)
+                 (cons "  Unreviewed:" line-change-excluding-reviewed-summary)))
+          (ysc/magit-review--insert-summary-fields
+           (list (cons "Reviewed diff:" (symbol-name ysc/magit-review-diff-mode))))))
       (insert "\n")
       (ysc/magit-review--insert-subsection
        "Not reviewed" not-reviewed-files)
