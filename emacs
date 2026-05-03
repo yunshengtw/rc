@@ -507,7 +507,8 @@
   :mode ("\\.md\\'" . gfm-mode)
   :commands (markdown-mode gfm-mode)
   :config
-  (setq markdown-command "pandoc -t html5 --mathml"))
+  (setq markdown-command "pandoc -t html5 --mathml")
+  (setq-default markdown-hide-markup t))
 
 (add-hook 'markdown-mode-hook
           (lambda ()
