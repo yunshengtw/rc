@@ -90,6 +90,29 @@
 ;; Find reference
 (global-set-key (kbd "M-/") 'xref-find-references)
 
+(defun ysc/kill-buffers-by-extension (extension)
+  "Kill all file-visiting buffers whose file extension is EXTENSION."
+  (interactive
+   (list (read-string "Kill buffers with extension: "
+                      (when buffer-file-name
+                        (file-name-extension buffer-file-name)))))
+  (let ((extension (if (string-prefix-p "." extension)
+                       (substring extension 1)
+                     extension))
+        (killed 0))
+    (when (string= extension "")
+      (user-error "Extension cannot be empty"))
+    (dolist (buffer (buffer-list))
+      (let ((file-name (buffer-file-name buffer)))
+        (when (and file-name
+                   (equal extension (file-name-extension file-name))
+                   (kill-buffer buffer))
+          (setq killed (1+ killed)))))
+    (message "Killed %d buffer%s with extension .%s"
+             killed
+             (if (= killed 1) "" "s")
+             extension)))
+
 ;;; Tab bar
 ;; Refresh on creating a new tab for dashboard
 (defun ysc/tab-bar-new-dashboard ()
