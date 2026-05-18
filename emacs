@@ -397,6 +397,9 @@
 	  ;; Type command is for `\cmd{arg}`; type declaration is for {\decl body}
       command))))
 
+(with-eval-after-load 'latex
+  (setq TeX-brace-indent-level 0))
+
 ;;; Docker
 (require 'dockerfile-mode)
 
