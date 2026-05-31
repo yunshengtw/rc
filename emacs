@@ -533,8 +533,27 @@
   :mode ("\\.md\\'" . gfm-mode)
   :commands (markdown-mode gfm-mode)
   :config
+  (defun ysc/markdown-follow-file-line-link (url)
+    "Open Markdown local file links like /path/to/file#L10 in another window."
+    (let* ((parsed (url-generic-parse-url url))
+           (target (url-target parsed))
+           (file (car (url-path-and-query parsed))))
+      (when (and (not (url-fullness parsed))
+                 target
+                 (string-match "\\`L\\([1-9][0-9]*\\)\\'" target)
+                 file
+                 (> (length file) 0))
+        (let ((line (string-to-number (match-string 1 target)))
+              (link-file (funcall markdown-translate-filename-function file)))
+          (find-file-other-window link-file)
+          (goto-char (point-min))
+          (forward-line (1- line))
+          t))))
+
   (setq markdown-command "pandoc -t html5 --mathml")
-  (setq-default markdown-hide-markup t))
+  (setq-default markdown-hide-markup t)
+  (add-hook 'markdown-follow-link-functions
+            #'ysc/markdown-follow-file-line-link))
 
 (add-hook 'markdown-mode-hook
           (lambda ()
