@@ -11,7 +11,8 @@ cp vimrc ~/.vimrc
 
 # tmux
 mkdir -p ~/.tmux/themes/
-git clone https://github.com/nordtheme/tmux.git ~/.tmux/themes/nord-tmux 2>/dev/null
+rm -rf ~/.tmux/themes/nord-tmux
+cp -R tmux/themes/nord-tmux ~/.tmux/themes/nord-tmux
 cp tmux/tmux.conf ~/.tmux.conf
 cp tmux/tmux.bind ~/.tmux.bind
 cp tmux/tmux.unbind ~/.tmux.unbind
