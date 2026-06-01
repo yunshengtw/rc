@@ -37,3 +37,7 @@ mkdir -p ~/.gemini/policies/
 for file in gemini/policies/*.toml; do
 	cp $file ~/.gemini/policies/$(basename $file)
 done
+
+# codex
+mkdir -p ~/.codex
+cp codex/config.toml ~/.codex/config.toml
