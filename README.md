@@ -61,6 +61,15 @@ The notification behavior itself is configured in `tmux/tmux.conf`:
 ```tmux
 set-window-option -g monitor-bell on
 set-option -g bell-action any
-set-option -g visual-bell on
+set-option -g visual-bell off
 set-option -g window-status-bell-style 'fg=#2e3440,bg=#ebcb8b,bold'
+```
+
+Alacritty is configured to ignore terminal bell output:
+
+```toml
+[bell]
+
+duration = 0
+command = "None"
 ```

@@ -17,6 +17,11 @@ bold_italic.family = "Source Code Pro"
 
 size = 14.0
 
+[bell]
+
+duration = 0
+command = "None"
+
 [keyboard]
 
 bindings = [
