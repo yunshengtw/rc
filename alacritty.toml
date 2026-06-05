@@ -19,8 +19,8 @@ size = 14.0
 
 [bell]
 
-duration = 0
-command = "None"
+# duration = 0
+command = { program = "afplay", args = ["/System/Library/Sounds/Blow.aiff"] }
 
 [keyboard]
 
