@@ -3,6 +3,8 @@ model_reasoning_effort = "xhigh"
 plan_mode_reasoning_effort = "xhigh"
 personality = "pragmatic"
 service_tier = "fast"
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
 
 [tui]
 status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-used"]
