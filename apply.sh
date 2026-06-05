@@ -15,7 +15,6 @@ rm -rf ~/.tmux/themes/nord-tmux
 cp -R tmux/themes/nord-tmux ~/.tmux/themes/nord-tmux
 cp tmux/tmux.conf ~/.tmux.conf
 cp tmux/tmux.bind ~/.tmux.bind
-cp tmux/tmux.unbind ~/.tmux.unbind
 
 # alacritty
 mkdir -p ~/.config/alacritty

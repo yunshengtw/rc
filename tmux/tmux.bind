@@ -38,17 +38,3 @@ bind-key -n \uE111 select-layout even-horizontal
 ## Copy mode.
 
 bind-key -n \uE200 copy-mode
-
-## Focus.
-##
-## Goal of the focus feature is to enable ease of use of nested tmux over SSH.
-## The idea is to "unfocus" from the local tmux, which removes all key bindings
-## (except PREFIX) to allow the key patterns to be sent over SSH to the remote
-## tmux. When we want to control the local tmux, "focus" rebuild the key
-## bindings.
-
-bind-key -n \uF000 source-file ~/.tmux.unbind
-
-## Set the focus flag.
-
-set-option -g @focus 1

@@ -48,8 +48,6 @@ bindings = [
 	{ key = "E", mods = "Command|Shift", chars = "\uE111" },
 	## Copy mode.
 	{ key = "M", mods = "Command|Shift", chars = "\uE200" },
-	##
-	{ key = "F", mods = "Command|Shift", chars = "\uF000" },
 ]
 
 [env]

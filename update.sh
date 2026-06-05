@@ -13,7 +13,6 @@ cp ~/.vimrc vimrc
 # tmux
 cp ~/.tmux.conf tmux/tmux.conf
 cp ~/.tmux.bind tmux/tmux.bind
-cp ~/.tmux.unbind tmux/tmux.unbind
 
 # alacritty
 cp ~/.config/alacritty/alacritty.toml alacritty.toml
@@ -35,4 +34,3 @@ GEMINI_POLICIES="deny-git-add-commit.toml"
 for file in $GEMINI_POLICIES; do
 	cp ~/.gemini/policies/$file gemini/policies/
 done
-
