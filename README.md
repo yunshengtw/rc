@@ -76,3 +76,15 @@ Alacritty is configured to play the macOS Blow sound on terminal bell output:
 
 command = { program = "afplay", args = ["/System/Library/Sounds/Blow.aiff"] }
 ```
+
+The goal is to keep that audible bell and the tmux yellow window alert without
+letting a background BEL make the Alacritty Dock icon bounce. Alacritty starts
+through a small shell wrapper that emits `CSI ? 1042 l`, disabling urgency hints
+for bell events before launching tmux:
+
+```toml
+[terminal.shell]
+
+program = "/bin/sh"
+args = ["-c", "printf '\\033[?1042l'; exec /opt/homebrew/bin/tmux new-session -A -s main"]
+```
