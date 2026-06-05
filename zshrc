@@ -334,6 +334,10 @@ prompt_igloo_setup "$@"
 setopt auto_list
 setopt no_auto_menu
 
+# Treat Alacritty/tmux Option-Arrow sequences as word movement in zle.
+bindkey '\e[1;3D' backward-word
+bindkey '\e[1;3C' forward-word
+
 # Set spaces per tab to 4.
 # This breaks ls output. Figure out the right way to do this.
 # tabs -4
