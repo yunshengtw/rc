@@ -60,20 +60,19 @@ The notification behavior itself is configured in `tmux/tmux.conf`:
 
 ```tmux
 set-window-option -g monitor-bell on
-set-option -g bell-action none
+set-option -g bell-action any
 set-option -g visual-bell off
 set-option -g window-status-bell-style 'fg=#2e3440,bg=#ebcb8b,bold'
 ```
 
-`monitor-bell` keeps the tmux window alert flag enabled, while `bell-action none`
-prevents tmux from forwarding the BEL to Alacritty. This preserves the yellow tab
-alert without sound, tmux's temporary bell message, or macOS Dock icon bouncing.
+`monitor-bell` keeps the tmux window alert flag enabled, while `bell-action any`
+forwards BEL events to Alacritty. This preserves the yellow tab alert and lets
+Alacritty run its configured bell command.
 
-Alacritty is configured to ignore terminal bell output:
+Alacritty is configured to play the macOS Blow sound on terminal bell output:
 
 ```toml
 [bell]
 
-duration = 0
-command = "None"
+command = { program = "afplay", args = ["/System/Library/Sounds/Blow.aiff"] }
 ```
