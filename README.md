@@ -2,6 +2,68 @@
 
 Personal runtime configuration files.
 
+## Setting up `yabai` + `skhd` (macOS tiling window manager and hotkey daemon)
+
+### Restarting the services
+
+``` sh
+yabai --stop-service
+yabai --start-service
+
+skhd --stop-service
+skhd --start-service
+```
+
+Check that the services are actually running:
+
+``` sh
+pgrep -fl yabai
+pgrep -fl skhd
+```
+
+If any one of them doesn't run, follow the troubleshooting below:
+
+### Check macOS permissions
+
+Go to System Settings → Privacy & Security → Accessibility and make sure both `yabai` and `skhd` are
+enabled.
+
+### Check whether `skhd` is blocked by Secure Keyboard Entry
+
+``` sh
+tail -n 80 /tmp/skhd_$USER.err.log
+```
+
+If you see something like "secure keyboard entry is enabled", we need to first close the app that's
+enabling Secure Keyboard Entry. Find the PID of that app using:
+
+``` sh
+ioreg -l -w 0 | grep kCGSSessionSecureInputPID
+```
+
+Look for string "kCGSSessionSecureInputPID=X" and run (note: the `-ww` remove width limit; otherwise
+the output might be truncated):
+
+``` sh
+ps -ww -p PID -o pid,comm,args
+```
+
+One example output:
+
+``` sh
+PID COMM             ARGS
+620 /System/Library/ /System/Library/CoreServices/loginwindow.app/Contents/MacOS/loginwindow console
+```
+
+One fix for this example output that did succeed is to log out other users on this mac.
+
+### Check `yabai`'s log
+
+``` sh
+tail -n 80 /tmp/yabai_$USER.err.log
+tail -n 80 /tmp/yabai_$USER.out.log
+```
+
 ## Nord tmux Theme
 
 This repo vendors the runtime files from the Nord tmux theme:
