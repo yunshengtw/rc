@@ -1,8 +1,7 @@
-model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
-plan_mode_reasoning_effort = "xhigh"
+model = "gpt-5.6-sol"
+model_reasoning_effort = "max"
 personality = "pragmatic"
-service_tier = "fast"
+service_tier = "default"
 approval_policy = "on-request"
 sandbox_mode = "workspace-write"
 
@@ -11,3 +10,8 @@ status_line = ["model-with-reasoning", "current-dir", "git-branch", "context-use
 notifications = ["agent-turn-complete"]
 notification_method = "bel"
 notification_condition = "always"
+
+[mcp_servers.bevy-server]
+command = "uv"
+args = ["run", "--directory", "/Users/yunsheng/Repos/spot/core", "mcp_bevy.py"]
+default_tools_approval_mode = "approve"
