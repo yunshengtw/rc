@@ -21,6 +21,11 @@ function ccf() {
 		 | sort -u
 }
 
+# Run `cargo run --release`.
+function crr() {
+	cargo run --release
+}
+
 alias cafe="caffeinate -dimsu"
 
 # Install `watch` with `brew install watch`.
