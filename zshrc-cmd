@@ -23,7 +23,7 @@ function ccf() {
 
 # Run `cargo run --release`.
 function crr() {
-	cargo run --release
+	cargo run --release "$@"
 }
 
 alias cafe="caffeinate -dimsu"
