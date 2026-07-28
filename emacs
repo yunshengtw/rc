@@ -1,6 +1,7 @@
 ;;; Packages and features  -*- lexical-binding: t; -*-
 ;; Enable installation of MELPA packages
 (require 'package)
+(setq package-install-upgrade-built-in t)
 (add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
 (package-initialize)
 (unless (package-installed-p 'use-package)
