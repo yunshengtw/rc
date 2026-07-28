@@ -493,21 +493,33 @@
 (define-key forge-pullreq-mode-map (kbd "C-c C-e") 'forge-edit-post)
 
 (setq auth-sources '("~/.config/emacs/.authinfo"))
+
+(defvar-local ysc/forge-post-worktree nil
+  "Worktree from which the current Forge post buffer was opened.")
+
+(defun ysc/forge-set-post-worktree ()
+  "Make the current Forge post use the worktree of its source buffer."
+  (when-let* ((source forge--pre-post-buffer)
+              (root (with-current-buffer source
+                      (magit-toplevel))))
+    (setq root (file-name-as-directory root))
+    (setq-local ysc/forge-post-worktree root)
+    (setq-local default-directory root)))
+
+(add-hook 'forge-edit-post-hook #'ysc/forge-set-post-worktree)
+
 ;; Enable file completion when posting with Forge
-(defun ysc/company-files-from-git-root (command &optional arg &rest rest)
-  ;; The file forge creates is located in /path/to/repo/.git/magit/posts, but we want
-  ;; auto-completion to happen at the repo level, so we walk through the file hierarchy to search
-  ;; for the git repo root.
-  (let* ((root (or (locate-dominating-file default-directory ".git")
-                   default-directory))
-         (default-directory root))
+(defun ysc/company-files-from-forge-worktree (command &optional arg &rest rest)
+  "Run `company-files' relative to the current Forge post worktree."
+  (let ((default-directory (or ysc/forge-post-worktree default-directory)))
     (apply #'company-files command arg rest)))
+
 (add-hook 'forge-post-mode-hook
           (lambda ()
             (setq-local company-backends
-                        (cons #'ysc/company-files-from-git-root
+                        (cons #'ysc/company-files-from-forge-worktree
                               company-backends))
-			(company-mode)))
+            (company-mode)))
 
 ;; Hide markdown markups in Forge topic/PR buffers
 (with-eval-after-load 'forge-topic
