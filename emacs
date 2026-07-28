@@ -452,27 +452,64 @@
 ;;; Reference: https://docs.magit.vc/forge/Setup-for-Githubcom.html
 (require 'forge)
 
-(defvar ysc/forge-last-pullreq-buffer nil
-  "Most recently visited live Forge pull request buffer.")
+(defun ysc/forge--open-pullreqs-for-branch (repo branch)
+  "Return locally stored open pull requests for BRANCH in REPO."
+  (let* ((configured (forge-get-pullreq :branch branch))
+         (ids (forge-sql-car
+               [:select [id] :from pullreq
+                :where (and (= repository $s1)
+                            (= state 'open)
+                            (= head-ref $s2))]
+               (oref repo id)
+               branch)))
+    (when (and configured
+               (eq (oref configured state) 'open))
+      (push (oref configured id) ids))
+    (mapcar #'forge-get-pullreq (delete-dups ids))))
 
-(defun ysc/forge-track-pullreq-buffer ()
-  "Remember the current buffer when it is a Forge pull request buffer."
-  (when (derived-mode-p 'forge-pullreq-mode)
-    (setq ysc/forge-last-pullreq-buffer (current-buffer))))
+(defun ysc/forge--visit-branch-pullreq (repo branch pulled)
+  "Visit the open pull request for BRANCH in REPO.
+When PULLED is nil, pull Forge data once if no local match exists."
+  (let ((pullreqs (ysc/forge--open-pullreqs-for-branch repo branch)))
+    (cond
+     ((cdr pullreqs)
+      (user-error
+       "Multiple open pull requests for branch `%s': %s"
+       branch
+       (mapconcat (lambda (pullreq)
+                    (format "#%s" (oref pullreq number)))
+                  pullreqs
+                  ", ")))
+     ((car pullreqs)
+      (forge-visit-pullreq (car pullreqs)))
+     (pulled
+      (user-error "No open pull request for branch `%s' in Forge" branch))
+     ((oref repo selective-p)
+      ;; Selective pulls omit pull requests and do not run Forge's callback.
+      (user-error
+       "No local open pull request for branch `%s'; selective Forge pull cannot fetch it"
+       branch))
+     (t
+      (message "No local open pull request for branch `%s'; pulling from Forge..." branch)
+      (forge--pull
+       repo
+       (lambda ()
+         (ysc/forge--visit-branch-pullreq repo branch t)))))))
 
-(defun ysc/forge-jump-to-last-pullreq-buffer ()
-  "Jump to the last visited Forge pull request buffer."
+(defun ysc/forge-visit-current-branch-pullreq ()
+  "Visit the open Forge pull request for the checked-out branch.
+Pull Forge data once when the pull request is not stored locally."
   (interactive)
-  (cond
-   ((not (buffer-live-p ysc/forge-last-pullreq-buffer))
-    (user-error "No remembered Forge pull request buffer"))
-   ((eq (current-buffer) ysc/forge-last-pullreq-buffer)
-    (message "Already in the remembered Forge pull request buffer"))
-   (t
-    (switch-to-buffer ysc/forge-last-pullreq-buffer))))
+  (let* ((root (or (magit-toplevel)
+                   (user-error "Not inside a Git repository")))
+         (default-directory root)
+         (branch (or (magit-get-current-branch)
+                     (user-error "Cannot find a pull request from detached HEAD")))
+         (repo (or (forge-get-repository :tracked? nil 'notatpt)
+                   (user-error "Repository is not tracked by Forge"))))
+    (ysc/forge--visit-branch-pullreq repo branch nil)))
 
-(add-hook 'buffer-list-update-hook #'ysc/forge-track-pullreq-buffer)
-(global-set-key (kbd "s-H") 'ysc/forge-jump-to-last-pullreq-buffer)
+(global-set-key (kbd "s-H") #'ysc/forge-visit-current-branch-pullreq)
 
 (defun ysc/forge-refresh-and-fetch-topic ()
   "Refresh the buffer and fetch topics from the forge."
