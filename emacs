@@ -84,6 +84,8 @@
       '(("\\`/.*/\\([^/]+\\)\\'" "/var/tmp/\\1" t)))
 ;; Switch to the most recent previously selected buffer
 (global-set-key (kbd "C-`") 'mode-line-other-buffer)
+;; Open the scratch buffer
+(global-set-key (kbd "s-n") 'scratch-buffer)
 ;; Find file under a project
 (global-set-key (kbd "C-x C-p") 'project-find-file)
 ;; Open find-definition in another window
